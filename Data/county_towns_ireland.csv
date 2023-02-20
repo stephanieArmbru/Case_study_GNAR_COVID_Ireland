@@ -1,0 +1,33 @@
+﻿city;lat;lng;country;iso2;admin_name;capital;population;population_proper
+Dublin;53,35;-6,26;Ireland;IE;Dublin;primary;1173179;1173179
+Cork;51,90;-8,47;Ireland;IE;Cork;admin;208669;208669
+Galway;53,27;-9,04;Ireland;IE;Galway;admin;79504;79504
+Limerick;52,67;-8,62;Ireland;IE;Limerick;admin;58319;58319
+Waterford;52,26;-7,12;Ireland;IE;Waterford;admin;48369;48369
+Drogheda;53,71;-6,35;Ireland;IE;Louth;;40956;40956
+Dún Dealgan;54,01;-6,40;Ireland;IE;Louth;admin;39004;39004
+Swords;53,46;-6,22;Ireland;IE;Fingal;admin;33998;33998
+Blackrock;53,30;-6,18;Ireland;IE;Dún Laoghaire-Rathdown;;28557;28557
+Tralee;52,27;-9,70;Ireland;IE;Kerry;admin;26384;22941
+Carlow;52,83;-6,93;Ireland;IE;Carlow;admin;24272;24272
+Ennis;52,85;-8,98;Ireland;IE;Clare;admin;24253;24253
+Dunleary;53,30;-6,14;Ireland;IE;Dún Laoghaire-Rathdown;admin;23857;23857
+Kilkenny;52,65;-7,26;Ireland;IE;Kilkenny;admin;22179;22179
+Naas;53,22;-6,67;Ireland;IE;Kildare;admin;21393;21393
+Sligo;54,27;-8,48;Ireland;IE;Sligo;admin;19452;19452
+Monaghan;54,25;-6,97;Ireland;IE;Monaghan;admin;5937;5937
+Ros Comáin;53,63;-8,18;Ireland;IE;Roscommon;admin;4860;4860
+Mullingar;53,53;-7,35;Ireland;IE;Westmeath;admin;;
+Tallaght;53,29;-6,34;Ireland;IE;South Dublin;admin;;
+Wicklow;52,98;-6,03;Ireland;IE;Wicklow;admin;;
+Clonmel;52,36;-7,70;Ireland;IE;Tipperary;admin;;
+Wexford;52,33;-6,46;Ireland;IE;Wexford;admin;;
+Longford;53,73;-7,80;Ireland;IE;Longford;admin;;
+Trim;53,56;-6,79;Ireland;IE;Meath;admin;;
+Carrick on Shannon;53,95;-8,09;Ireland;IE;Leitrim;admin;;
+Tullamore;53,27;-7,50;Ireland;IE;Offaly;admin;;
+Nenagh;52,86;-8,20;Ireland;IE;Tipperary;admin;;
+An Cabhán;53,99;-7,36;Ireland;IE;Cavan;admin;;
+Port Laoise;53,03;-7,30;Ireland;IE;Laois;admin;;
+Castlebar;53,85;-9,30;Ireland;IE;Mayo;admin;;
+Lifford;54,84;-7,48;Ireland;IE;Donegal;admin;;
