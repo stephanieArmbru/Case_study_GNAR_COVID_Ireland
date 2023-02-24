@@ -1002,6 +1002,114 @@ parameter_development_subsets <- function(data_list = datasets_list,
   
 }
 
+parameter_development_phases <- function(data_list = datasets_list_coarse, 
+                                          net_list, 
+                                          numeric_vertices = FALSE, 
+                                          county_index, 
+                                          old = TRUE, 
+                                          inverse_distance = FALSE, 
+                                          forecast_window = 0, 
+                                          alpha_vector, 
+                                          beta_list, 
+                                          globalalpha = TRUE,
+                                          return_model = TRUE, 
+                                         name = "phases") {
+  param <- list()
+  type_of_restriction <- c("Restricted",
+                           "Unrestricted")
+  
+  # circle through all data subsets and fit the best performing GNAR model
+  for (i in seq(1, length(data_list))) {
+    mod <- fit_and_predict(vts = data_list[[i]], 
+                           net = net_list[[i]], 
+                           county_index = county_index, 
+                           old = old, 
+                           inverse_distance = inverse_distance, 
+                           forecast_window = forecast_window, 
+                           alpha = alpha_vector[i], 
+                           beta = beta_list[[i]], 
+                           globalalpha = globalalpha,
+                           return_model = return_model, 
+                           numeric_vertices = numeric_vertices)
+    
+    info <- data.frame("estimate" = mod %>% coef(), 
+                       "coefficient" = mod %>% coef() %>% names(), 
+                       "restriction" = factor(type_of_restriction[i], 
+                                              levels = c("Restricted",
+                                                         "Unrestricted")))
+    param[[i]] <- cbind(info, 
+                        "lower" = confint(mod)[, 1], 
+                        "upper" = confint(mod)[, 2]
+    )
+    
+  }
+  
+  param_df <- param %>% list.rbind() %>% data.frame()
+  
+  # visualise the change in coefficient values across data subsets  
+  g_alpha <- ggplot(param_df  %>% 
+                      filter(grepl("alpha", coefficient)), 
+                    aes(x = restriction, 
+                        y = estimate, 
+                        group = coefficient, 
+                        color = coefficient)) +
+    geom_point() +
+    geom_errorbar(aes(ymin = lower, 
+                      ymax = upper, 
+                      x = restriction, 
+                      group = coefficient, 
+                      color = coefficient), 
+                  width=0.2, 
+                  alpha = 0.5) +
+    geom_line(linetype  = "dashed") +
+    ylab("coefficient values") +
+    xlab("Restrictions") + 
+    scale_color_brewer(palette = "Set1") +
+    theme(legend.position = "bottom") +
+    guides(color = guide_legend(title = "GNAR coefficient"))
+  
+  ggsave(file = paste0("Figures/ParameterDevelopment/alpha_order_", 
+                       name,
+                       ".pdf", 
+                       collapse = ""), 
+         plot = g_alpha, 
+         width = 26, height = 14, unit = "cm")
+  
+  
+  g_beta <- ggplot(param_df  %>% 
+                     filter(grepl("beta", coefficient)), 
+                   aes(x = restriction, 
+                       y = estimate, 
+                       group = coefficient, 
+                       color = coefficient)) +
+    geom_point() +
+    geom_errorbar(aes(ymin = lower, 
+                      ymax = upper, 
+                      x = restriction, 
+                      group = coefficient, 
+                      color = coefficient), 
+                  width=0.2, 
+                  alpha = 0.5) +
+    geom_line(linetype = "dashed") +
+    ylab("coefficient values") +
+    xlab("Restrictions") + 
+    scale_color_brewer(palette = "Set1") +
+    theme(legend.position = "bottom") +
+    guides(color = guide_legend(title = "GNAR coefficient"))
+  
+  ggsave(file = paste0("Figures/ParameterDevelopment/beta_order_", 
+                       name,
+                       ".pdf", 
+                       collapse = ""), 
+         plot = g_beta, 
+         width = 26, height = 14, unit = "cm")
+  
+  return(list("alpha" = g_alpha, 
+              "beta" = g_beta, 
+              "dataset" = param_df))
+  
+}
+
 
 # Restrictions - tuning parameters ----------------------------------------
 # circle through different alpha and beta order combinations and fit 
@@ -1260,4 +1368,195 @@ compute_MASE <- function(model,
   }
   
   return(mase_df %>% na.omit())
+}
+
+
+plot_mase_I <- function(mase_overview, 
+                        mase_name = "restricted", 
+                        types = c("subset_1_delaunay", 
+                                  "subset_1_gabriel", 
+                                  "subset_1_relative", 
+                                  "subset_1_soi", 
+                                  "subset_1_train", 
+                                  "ARIMA"),
+                        type_name = "delaunay", 
+                        counties_subset = all_counties[1:13], 
+                        number_counties = 1, 
+                        color_types = c("ARIMA" = "grey", 
+                                        "subset_1_gabriel" = "#00BFC4", 
+                                        "subset_1_relative" = "#00B0F6", 
+                                        "subset_1_soi" = "#9590FF", 
+                                        "subset_1_delaunay" = "#E76BF3", 
+                                        "subset_1_train" = "#FF62BC"), 
+                        label_networks = c("ARIMA", 
+                                           "Gabriel", 
+                                           "Relative", 
+                                           "SOI", 
+                                           "Delaunay", 
+                                           "Train"), 
+                        lag = "lag_1") {
+  g <- ggplot(mase_overview %>% 
+                filter(type %in% types, 
+                       CountyName %in% counties_subset), 
+              aes(x = time, 
+                  y = mase, 
+                  color = type)) +
+    geom_point() +
+    geom_line(linetype = "dashed") +
+    xlab("Time") + 
+    ylab("MASE") +
+    facet_grid(~ CountyName) +
+    theme(legend.position = "bottom", 
+          axis.text.x = element_text(angle = 90, 
+                                     vjust = 0.5, 
+                                     hjust=1)) +
+    scale_color_manual(values = color_types,
+                       labels = label_networks, 
+                       name = "Network")
+  ggsave(filename = paste0("Figures/GNAR_pandemic_phases/mase_", 
+                           type_name,
+                           "_", 
+                           mase_name, 
+                           "_", 
+                           lag, 
+                           number_counties,
+                           ".pdf", 
+                           collapse = ""), 
+         plot = g,
+         width = 26, height = 13, units = "cm")
+  
+  return(g)
+}
+
+plot_mase_II <- function(mase_overview, 
+                         mase_name = "restricted", 
+                         counties_subset,
+                         number_counties, 
+                         lag = "lag_1", 
+                         types = c("subset_1_dnn", 
+                                   "subset_1_knn", 
+                                   "subset_1_queen", 
+                                   "subset_1_eco_hub", 
+                                   "subset_1_complete", 
+                                   "ARIMA"),
+                         color_types = c("ARIMA" = "grey", 
+                                         "subset_1_knn" = "#F8766D", 
+                                         "subset_1_dnn" = "#D89000", 
+                                         "subset_1_complete" = "#A3A500", 
+                                         "subset_1_queen" = "#39B600", 
+                                         "subset_1_eco_hub" = "#00BF7D")) {
+  plot_mase_I(mase_overview = mase_overview, 
+              mase_name = mase_name, 
+              types = types,
+              type_name = "knn", 
+              counties_subset = counties_subset, 
+              number_counties = number_counties, 
+              color_types = color_types, 
+              label_networks = c("ARIMA", 
+                                 "KNN", 
+                                 "DNN", 
+                                 "Complete",
+                                 "Queen", 
+                                 "Eco hub"), 
+              lag = lag)
+}
+
+
+
+# Prediction vs. Fitted ---------------------------------------------------
+plot_predicted_vs_fitted_I <- function(mase_overview, 
+                                       mase_name = "restricted", 
+                                       types = c("subset_1_delaunay", 
+                                                 "subset_1_gabriel", 
+                                                 "subset_1_relative", 
+                                                 "subset_1_soi", 
+                                                 "subset_1_train", 
+                                                 "ARIMA"),
+                                       type_name = "delaunay", 
+                                       counties_subset = all_counties[1:13], 
+                                       number_counties = 1, 
+                                       color_types = c("ARIMA" = "grey", 
+                                                       "subset_1_gabriel" = "#00BFC4", 
+                                                       "subset_1_relative" = "#00B0F6", 
+                                                       "subset_1_soi" = "#9590FF", 
+                                                       "subset_1_delaunay" = "#E76BF3", 
+                                                       "subset_1_train" = "#FF62BC"), 
+                                       label_networks = c("ARIMA", 
+                                                          "Gabriel", 
+                                                          "Relative", 
+                                                          "SOI", 
+                                                          "Delaunay", 
+                                                          "Train"), 
+                                       lag = "lag_1") {
+  g <- ggplot(mase_overview %>% filter(type %in% types, 
+                                       CountyName %in% counties_subset), 
+              aes(x = time, 
+                  y = predicted, 
+                  color = type)) +
+    geom_point() +
+    geom_line(linetype = "dashed") +
+    geom_point(aes(x = time, 
+                   y = true), 
+               color = "darkgrey", 
+               shape = 2) +
+    geom_line(aes(x = time, 
+                  y = true), 
+              linetype = "dotted", 
+              color = "darkgrey") +
+    xlab("Time") + 
+    ylab("COVID-19 ID") +
+    facet_grid(~ CountyName) +
+    theme(legend.position = "bottom", 
+          axis.text.x = element_text(angle = 90, 
+                                     vjust = 0.5, 
+                                     hjust=1)) +
+    scale_color_manual(values = color_types,
+                       labels = label_networks, 
+                       name = "Network")
+  ggsave(filename = paste0("Figures/GNAR_pandemic_phases/predicted_", 
+                           type_name,
+                           "_", 
+                           mase_name, 
+                           "_", 
+                           lag, 
+                           number_counties,
+                           ".pdf", 
+                           collapse = ""), 
+         plot = g,
+         width = 26, height = 13, units = "cm")
+  
+  return(g)
+}
+
+plot_predicted_vs_fitted_II <- function(mase_overview, 
+                                        mase_name = "restricted",
+                                        counties_subset,
+                                        number_counties, 
+                                        lag = "lag_1", 
+                                        types = c("subset_1_dnn", 
+                                                  "subset_1_knn", 
+                                                  "subset_1_queen", 
+                                                  "subset_1_eco_hub", 
+                                                  "subset_1_complete", 
+                                                  "ARIMA"),
+                                        color_types = c("ARIMA" = "grey", 
+                                                        "subset_1_knn" = "#F8766D", 
+                                                        "subset_1_dnn" = "#D89000", 
+                                                        "subset_1_complete" = "#A3A500", 
+                                                        "subset_1_queen" = "#39B600", 
+                                                        "subset_1_eco_hub" = "#00BF7D")) {
+  plot_predicted_vs_fitted_I(mase_overview = mase_overview, 
+                             mase_name = mase_name, 
+                             types = types,
+                             type_name = "knn", 
+                             counties_subset = counties_subset, 
+                             number_counties = number_counties, 
+                             color_types = color_types, 
+                             label_networks = c("ARIMA", 
+                                                "KNN", 
+                                                "DNN", 
+                                                "Complete",
+                                                "Queen", 
+                                                "Eco hub"), 
+                             lag = lag)
 }

@@ -17,6 +17,7 @@ library(xtable) # for tables
 library(spdep) # for neighbourhood construction 
 library(expp)
 library(rlist)
+library(forecast)
 
 
 # load vectors and GNAR objects 
@@ -2050,6 +2051,7 @@ parameter_development_subsets(net_list = list(dnn_300_gnar,
 # Pandemic situations -----------------------------------------------------
 load(file = "Data/RObjects/data_subsets_pandemic_situations.RData")
 
+all_counties <- colnames(datasets_list_coarse[[1]])
 # ARIMA benchmark ---------------------------------------------------------
 arima_results_list <- lapply(datasets_list_coarse, FUN = function(i) {
   results_arima <- list()
@@ -2111,11 +2113,13 @@ lapply(arima_results_list, FUN = function(j) {
 mase_arima_restrictive <- fit_and_predict_arima(forecast_window = 5, 
                                                 results = arima_results_list[[1]], 
                                                 data = datasets_list_coarse[[1]] %>% 
-                                                  as.data.frame())
+                                                  as.data.frame(), 
+                                                counties = all_counties)
 mase_arima_free <- fit_and_predict_arima(forecast_window = 5, 
                                          results = arima_results_list[[2]], 
                                          data = datasets_list_coarse[[2]] %>% 
-                                           as.data.frame())
+                                           as.data.frame(), 
+                                         counties = all_counties)
 
 # Best performing GNAR models ---------------------------------------------
 # compute GNAR models for each data subsets and select the best performing one 
@@ -2525,8 +2529,6 @@ mod_1_complete <- fit_and_predict(alpha = 5,
                                   forecast_window = 5, 
                                   return_model = TRUE)
 
-all_counties <- colnames(datasets_list_coarse[[1]])
-
 # compute MASE for best performing GNAR model for each network
 mase_1_queen <- compute_MASE(model = mod_1_queen, 
                              network_name = "subset_1_queen", 
@@ -2604,334 +2606,47 @@ mase_1_overview <- rbind(mase_1_queen,
 
 # plot MASE for Delaunay, Gabriel, Relative and SOI as well as Railway-based 
 # network
-ggplot(mase_1_overview %>% filter(type %in% c("subset_1_delaunay", 
-                                              "subset_1_gabriel", 
-                                              "subset_1_relative", 
-                                              "subset_1_soi", 
-                                              "subset_1_train", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[1:13]), 
-       aes(x = time, 
-           y = mase, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_1_gabriel" = "#00BFC4", 
-                                "subset_1_relative" = "#00B0F6", 
-                                "subset_1_soi" = "#9590FF", 
-                                "subset_1_delaunay" = "#E76BF3", 
-                                "subset_1_train" = "#FF62BC"),
-                     labels = c("ARIMA", 
-                                "Gabriel", 
-                                "Relative", 
-                                "SOI", 
-                                "Delaunay", 
-                                "Train"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/mase_delaunay_etc_subset_restrictive_1_lag_I.pdf", 
-       width = 26, height = 13, units = "cm")
 
-ggplot(mase_1_overview %>% filter(type %in% c("subset_1_delaunay", 
-                                              "subset_1_gabriel", 
-                                              "subset_1_relative", 
-                                              "subset_1_soi", 
-                                              "subset_1_train", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[14:26]), 
-       aes(x = time, 
-           y = mase, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_1_gabriel" = "#00BFC4", 
-                                "subset_1_relative" = "#00B0F6", 
-                                "subset_1_soi" = "#9590FF", 
-                                "subset_1_delaunay" = "#E76BF3", 
-                                "subset_1_train" = "#FF62BC"),
-                     labels = c("ARIMA", 
-                                "Gabriel", 
-                                "Relative", 
-                                "SOI", 
-                                "Delaunay", 
-                                "Train"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/mase_delaunay_etc_subset_restrictive_1_lag_II.pdf", 
-       width = 26, height = 13, units = "cm")
+m_1_delaunay_I <- plot_mase_I(mase_overview = mase_1_overview, 
+                              counties_subset = all_counties[1:9],
+                              number_counties = 1)
+m_1_delaunay_II <- plot_mase_I(mase_overview = mase_1_overview, 
+                               counties_subset = all_counties[10:18], 
+                               number_counties = 2)
+m_1_delaunay_III <- plot_mase_I(mase_overview = mase_1_overview, 
+                                counties_subset = all_counties[19:26], 
+                                number_counties = 3)
 
-
-
-
-
-# plot MASE for KNN, DNN, Queen, Eco hub, Rail and Complete network
-ggplot(mase_1_overview %>% filter(type %in% c("subset_1_dnn", 
-                                              "subset_1_knn", 
-                                              "subset_1_queen", 
-                                              "subset_1_eco_hub", 
-                                              "subset_1_complete", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[1:13]), 
-       aes(x = time, 
-           y = mase, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_1_knn" = "#F8766D", 
-                                "subset_1_dnn" = "#D89000", 
-                                "subset_1_complete" = "#A3A500", 
-                                "subset_1_queen" = "#39B600", 
-                                "subset_1_eco_hub" = "#00BF7D"),
-                     label = c("ARIMA", 
-                               "KNN", 
-                               "DNN", 
-                               "Complete",
-                               "Queen", 
-                               "Eco hub"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/mase_knn_etc_subset_restrictive_1_lag_I.pdf", 
-       width = 26, height = 13, units = "cm")
-
-ggplot(mase_1_overview %>% filter(type %in% c("subset_1_dnn", 
-                                              "subset_1_knn", 
-                                              "subset_1_queen", 
-                                              "subset_1_eco_hub", 
-                                              "subset_1_complete", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[14:26]), 
-       aes(x = time, 
-           y = mase, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_1_knn" = "#F8766D", 
-                                "subset_1_dnn" = "#D89000", 
-                                "subset_1_complete" = "#A3A500", 
-                                "subset_1_queen" = "#39B600", 
-                                "subset_1_eco_hub" = "#00BF7D"),
-                     label = c("ARIMA", 
-                               "KNN", 
-                               "DNN", 
-                               "Complete",
-                               "Queen", 
-                               "Eco hub"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/mase_knn_etc_subset_restrictive_1_lag_II.pdf", 
-       width = 26, height = 13, units = "cm")
-
-
+m_1_knn_I <- plot_mase_II(mase_overview = mase_1_overview, 
+                          counties_subset = all_counties[1:9],
+                          number_counties = 1)
+m_1_knn_II <- plot_mase_II(mase_overview = mase_1_overview, 
+                           counties_subset = all_counties[10:18],
+                           number_counties = 2)
+m_1_knn_III <- plot_mase_II(mase_overview = mase_1_overview, 
+                            counties_subset = all_counties[19:26],
+                            number_counties = 3)
 
 # Predicted vs. fitted for restricted -------------------------------------
+g_1_delaunay_I <- plot_predicted_vs_fitted_I(mase_overview = mase_1_overview, 
+                                             counties_subset = all_counties[1:9],
+                                             number_counties = 1)
+g_1_delaunay_II <- plot_predicted_vs_fitted_I(mase_overview = mase_1_overview, 
+                                              counties_subset = all_counties[10:18], 
+                                              number_counties = 2)
+g_1_delaunay_III <- plot_predicted_vs_fitted_I(mase_overview = mase_1_overview, 
+                                               counties_subset = all_counties[19:26], 
+                                               number_counties = 3)
 
-ggplot(mase_1_overview %>% filter(type %in% c("subset_1_delaunay", 
-                                              "subset_1_gabriel", 
-                                              "subset_1_relative", 
-                                              "subset_1_soi", 
-                                              "subset_1_train", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[1:13]), 
-       aes(x = time, 
-           y = predicted, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  geom_point(aes(x = time, 
-                 y = true), 
-             color = "darkgrey", 
-             shape = 2) +
-  geom_line(aes(x = time, 
-                y = true), 
-            linetype = "dotted", 
-            color = "darkgrey") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_1_gabriel" = "#00BFC4", 
-                                "subset_1_relative" = "#00B0F6", 
-                                "subset_1_soi" = "#9590FF", 
-                                "subset_1_delaunay" = "#E76BF3", 
-                                "subset_1_train" = "#FF62BC"),
-                     labels = c("ARIMA", 
-                                "Gabriel", 
-                                "Relative", 
-                                "SOI", 
-                                "Delaunay", 
-                                "Train"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/predicted_delaunay_etc_subset_restrictive_1_lag_I.pdf", 
-       width = 26, height = 13, units = "cm")
-
-
-ggplot(mase_1_overview %>% filter(type %in% c("subset_1_delaunay", 
-                                              "subset_1_gabriel", 
-                                              "subset_1_relative", 
-                                              "subset_1_soi", 
-                                              "subset_1_train", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[14:26]), 
-       aes(x = time, 
-           y = predicted, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  geom_point(aes(x = time, 
-                 y = true), 
-             color = "darkgrey", 
-             shape = 2) +
-  geom_line(aes(x = time, 
-                y = true), 
-            linetype = "dotted", 
-            color = "darkgrey") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_1_gabriel" = "#00BFC4", 
-                                "subset_1_relative" = "#00B0F6", 
-                                "subset_1_soi" = "#9590FF", 
-                                "subset_1_delaunay" = "#E76BF3", 
-                                "subset_1_train" = "#FF62BC"),
-                     labels = c("ARIMA", 
-                                "Gabriel", 
-                                "Relative", 
-                                "SOI", 
-                                "Delaunay", 
-                                "Train"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/predicted_delaunay_etc_subset_restrictive_1_lag_II.pdf", 
-       width = 26, height = 13, units = "cm")
-
-
-
-
-ggplot(mase_1_overview %>% filter(type %in% c("subset_1_dnn", 
-                                              "subset_1_knn", 
-                                              "subset_1_queen", 
-                                              "subset_1_eco_hub", 
-                                              "subset_1_complete", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[1:13]), 
-       aes(x = time, 
-           y = predicted, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  geom_point(aes(x = time, 
-                 y = true), 
-             color = "darkgrey", 
-             shape = 2) +
-  geom_line(aes(x = time, 
-                y = true), 
-            linetype = "dotted", 
-            color = "darkgrey") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_1_knn" = "#F8766D", 
-                                "subset_1_dnn" = "#D89000", 
-                                "subset_1_complete" = "#A3A500", 
-                                "subset_1_queen" = "#39B600", 
-                                "subset_1_eco_hub" = "#00BF7D"),
-                     label = c("ARIMA", 
-                               "KNN", 
-                               "DNN", 
-                               "Complete",
-                               "Queen", 
-                               "Eco hub"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/predicted_knn_etc_subset_restrictive_1_lag_I.pdf", 
-       width = 26, height = 13, units = "cm")
-
-
-ggplot(mase_1_overview %>% filter(type %in% c("subset_1_dnn", 
-                                              "subset_1_knn", 
-                                              "subset_1_queen", 
-                                              "subset_1_eco_hub", 
-                                              "subset_1_complete", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[14:26]), 
-       aes(x = time, 
-           y = predicted, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  geom_point(aes(x = time, 
-                 y = true), 
-             color = "darkgrey", 
-             shape = 2) +
-  geom_line(aes(x = time, 
-                y = true), 
-            linetype = "dotted", 
-            color = "darkgrey") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_1_knn" = "#F8766D", 
-                                "subset_1_dnn" = "#D89000", 
-                                "subset_1_complete" = "#A3A500", 
-                                "subset_1_queen" = "#39B600", 
-                                "subset_1_eco_hub" = "#00BF7D"),
-                     label = c("ARIMA", 
-                               "KNN", 
-                               "DNN", 
-                               "Complete",
-                               "Queen", 
-                               "Eco hub"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/predicted_knn_etc_subset_restrictive_1_lag_II.pdf", 
-       width = 26, height = 13, units = "cm")
-
-
-
+g_1_knn_I <- plot_predicted_vs_fitted_II(mase_overview = mase_1_overview, 
+                                         counties_subset = all_counties[1:9],
+                                         number_counties = 1)
+g_1_knn_II <- plot_predicted_vs_fitted_II(mase_overview = mase_1_overview, 
+                                         counties_subset = all_counties[10:18],
+                                         number_counties = 2)
+g_1_knn_III <- plot_predicted_vs_fitted_II(mase_overview = mase_1_overview, 
+                                         counties_subset = all_counties[19:26],
+                                         number_counties = 3)
 
 
 # MASE for free -----------------------------------------------------------
@@ -3120,336 +2835,205 @@ mase_2_overview <- rbind(mase_2_queen,
 
 # plot MASE for Delaunay, Gabriel, Relative and SOI as well as Railway-based 
 # network
-ggplot(mase_2_overview %>% filter(type %in% c("subset_2_delaunay", 
-                                              "subset_2_gabriel", 
-                                              "subset_2_relative", 
-                                              "subset_2_soi", 
-                                              "subset_2_train", 
-                                              "ARIMA"),
-                                  CountyName %in% all_counties[1:13]), 
-       aes(x = time, 
-           y = mase, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_2_gabriel" = "#00BFC4", 
-                                "subset_2_relative" = "#00B0F6", 
-                                "subset_2_soi" = "#9590FF", 
-                                "subset_2_delaunay" = "#E76BF3", 
-                                "subset_2_train" = "#FF62BC"),
-                     labels = c("ARIMA", 
-                                "Gabriel", 
-                                "Relative", 
-                                "SOI", 
-                                "Delaunay", 
-                                "Train"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/mase_delaunay_etc_subset_free_lag_1_I.pdf", 
-       width = 26, height = 13, units = "cm")
-
-ggplot(mase_2_overview %>% filter(type %in% c("subset_2_delaunay", 
-                                              "subset_2_gabriel", 
-                                              "subset_2_relative", 
-                                              "subset_2_soi", 
-                                              "subset_2_train", 
-                                              "ARIMA"),
-                                  CountyName %in% all_counties[14:26]), 
-       aes(x = time, 
-           y = mase, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_2_gabriel" = "#00BFC4", 
-                                "subset_2_relative" = "#00B0F6", 
-                                "subset_2_soi" = "#9590FF", 
-                                "subset_2_delaunay" = "#E76BF3", 
-                                "subset_2_train" = "#FF62BC"),
-                     labels = c("ARIMA", 
-                                "Gabriel", 
-                                "Relative", 
-                                "SOI", 
-                                "Delaunay", 
-                                "Train"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/mase_delaunay_etc_subset_free_lag_1_II.pdf", 
-       width = 26, height = 13, units = "cm")
 
 
-# plot MASE for KNN, DNN, Queen, Eco hub, Rail and Complete network
-ggplot(mase_2_overview %>% filter(type %in% c("subset_2_dnn", 
-                                              "subset_2_knn", 
-                                              "subset_2_queen", 
-                                              "subset_2_eco_hub", 
-                                              "subset_2_complete", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[1:13]), 
-       aes(x = time, 
-           y = mase, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_2_knn" = "#F8766D", 
-                                "subset_2_dnn" = "#D89000", 
-                                "subset_2_complete" = "#A3A500", 
-                                "subset_2_queen" = "#39B600", 
-                                "subset_2_eco_hub" = "#00BF7D"),
-                     label = c("ARIMA", 
-                               "KNN", 
-                               "DNN", 
-                               "Complete",
-                               "Queen", 
-                               "Eco hub"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/mase_knn_etc_subset_free_lag_1_I.pdf", 
-       width = 26, height = 13, units = "cm")
+m_2_delaunay_I <- plot_mase_I(mase_overview = mase_2_overview, 
+                              mase_name = "free", 
+                              counties_subset = all_counties[1:9],
+                              number_counties = 1, 
+                              types = c("subset_2_delaunay", 
+                                        "subset_2_gabriel", 
+                                        "subset_2_relative", 
+                                        "subset_2_soi", 
+                                        "subset_2_train", 
+                                        "ARIMA"), 
+                              color_types = c("ARIMA" = "grey", 
+                                              "subset_2_gabriel" = "#00BFC4", 
+                                              "subset_2_relative" = "#00B0F6", 
+                                              "subset_2_soi" = "#9590FF", 
+                                              "subset_2_delaunay" = "#E76BF3", 
+                                              "subset_2_train" = "#FF62BC"))
+m_2_delaunay_II <- plot_mase_I(mase_overview = mase_2_overview,
+                               mase_name = "free", 
+                               counties_subset = all_counties[10:18], 
+                               number_counties = 2, 
+                               types = c("subset_2_delaunay", 
+                                         "subset_2_gabriel", 
+                                         "subset_2_relative", 
+                                         "subset_2_soi", 
+                                         "subset_2_train", 
+                                         "ARIMA"), 
+                               color_types = c("ARIMA" = "grey", 
+                                               "subset_2_gabriel" = "#00BFC4", 
+                                               "subset_2_relative" = "#00B0F6", 
+                                               "subset_2_soi" = "#9590FF", 
+                                               "subset_2_delaunay" = "#E76BF3", 
+                                               "subset_2_train" = "#FF62BC"))
+m_2_delaunay_III <- plot_mase_I(mase_overview = mase_2_overview, 
+                                mase_name = "free", 
+                                counties_subset = all_counties[19:26], 
+                                number_counties = 3, 
+                                types = c("subset_2_delaunay", 
+                                          "subset_2_gabriel", 
+                                          "subset_2_relative", 
+                                          "subset_2_soi", 
+                                          "subset_2_train", 
+                                          "ARIMA"), 
+                                color_types = c("ARIMA" = "grey", 
+                                                "subset_2_gabriel" = "#00BFC4", 
+                                                "subset_2_relative" = "#00B0F6", 
+                                                "subset_2_soi" = "#9590FF", 
+                                                "subset_2_delaunay" = "#E76BF3", 
+                                                "subset_2_train" = "#FF62BC"))
 
-ggplot(mase_2_overview %>% filter(type %in% c("subset_2_dnn", 
-                                              "subset_2_knn", 
-                                              "subset_2_queen", 
-                                              "subset_2_eco_hub", 
-                                              "subset_2_complete", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[14:26]), 
-       aes(x = time, 
-           y = mase, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_2_knn" = "#F8766D", 
-                                "subset_2_dnn" = "#D89000", 
-                                "subset_2_complete" = "#A3A500", 
-                                "subset_2_queen" = "#39B600", 
-                                "subset_2_eco_hub" = "#00BF7D"),
-                     label = c("ARIMA", 
-                               "KNN", 
-                               "DNN", 
-                               "Complete",
-                               "Queen", 
-                               "Eco hub"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/mase_knn_etc_subset_free_lag_1_II.pdf", 
-       width = 26, height = 13, units = "cm")
-
-
-
-# Predicted vs. fitted in unrestricted ------------------------------------
-ggplot(mase_2_overview %>% filter(type %in% c("subset_2_delaunay", 
-                                              "subset_2_gabriel", 
-                                              "subset_2_relative", 
-                                              "subset_2_soi", 
-                                              "subset_2_train", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[1:13]), 
-       aes(x = time, 
-           y = predicted, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  geom_point(aes(x = time, 
-                 y = true), 
-             color = "darkgrey", 
-             shape = 2) +
-  geom_line(aes(x = time, 
-                y = true), 
-            linetype = "dotted", 
-            color = "darkgrey") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_2_gabriel" = "#00BFC4", 
-                                "subset_2_relative" = "#00B0F6", 
-                                "subset_2_soi" = "#9590FF", 
-                                "subset_2_delaunay" = "#E76BF3", 
-                                "subset_2_train" = "#FF62BC"),
-                     labels = c("ARIMA", 
-                                "Gabriel", 
-                                "Relative", 
-                                "SOI", 
-                                "Delaunay", 
-                                "Train"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/predicted_delaunay_etc_subset_free_1_lag_I.pdf", 
-       width = 26, height = 13, units = "cm")
+m_2_knn_I <- plot_mase_II(mase_overview = mase_2_overview,
+                          mase_name = "free", 
+                          counties_subset = all_counties[1:9],
+                          number_counties = 1, 
+                          types = c("subset_2_dnn", 
+                                    "subset_2_knn", 
+                                    "subset_2_queen", 
+                                    "subset_2_eco_hub", 
+                                    "subset_2_complete", 
+                                    "ARIMA"), 
+                          color_types = c("ARIMA" = "grey", 
+                                          "subset_2_knn" = "#F8766D", 
+                                          "subset_2_dnn" = "#D89000", 
+                                          "subset_2_complete" = "#A3A500", 
+                                          "subset_2_queen" = "#39B600", 
+                                          "subset_2_eco_hub" = "#00BF7D"))
+m_2_knn_II <- plot_mase_II(mase_overview = mase_2_overview, 
+                           mase_name = "free", 
+                           counties_subset = all_counties[10:18],
+                           number_counties = 2, 
+                           types = c("subset_2_dnn", 
+                                     "subset_2_knn", 
+                                     "subset_2_queen", 
+                                     "subset_2_eco_hub", 
+                                     "subset_2_complete", 
+                                     "ARIMA"), 
+                           color_types = c("ARIMA" = "grey", 
+                                           "subset_2_knn" = "#F8766D", 
+                                           "subset_2_dnn" = "#D89000", 
+                                           "subset_2_complete" = "#A3A500", 
+                                           "subset_2_queen" = "#39B600", 
+                                           "subset_2_eco_hub" = "#00BF7D"))
+m_2_knn_III <- plot_mase_II(mase_overview = mase_2_overview,
+                            mase_name = "free", 
+                            counties_subset = all_counties[19:26],
+                            number_counties = 3, 
+                            types = c("subset_2_dnn", 
+                                      "subset_2_knn", 
+                                      "subset_2_queen", 
+                                      "subset_2_eco_hub", 
+                                      "subset_2_complete", 
+                                      "ARIMA"), 
+                            color_types = c("ARIMA" = "grey", 
+                                            "subset_2_knn" = "#F8766D", 
+                                            "subset_2_dnn" = "#D89000", 
+                                            "subset_2_complete" = "#A3A500", 
+                                            "subset_2_queen" = "#39B600", 
+                                            "subset_2_eco_hub" = "#00BF7D"))
 
 
-ggplot(mase_2_overview %>% filter(type %in% c("subset_2_delaunay", 
-                                              "subset_2_gabriel", 
-                                              "subset_2_relative", 
-                                              "subset_2_soi", 
-                                              "subset_2_train", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[14:26]), 
-       aes(x = time, 
-           y = predicted, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  geom_point(aes(x = time, 
-                 y = true), 
-             color = "darkgrey", 
-             shape = 2) +
-  geom_line(aes(x = time, 
-                y = true), 
-            linetype = "dotted", 
-            color = "darkgrey") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_2_gabriel" = "#00BFC4", 
-                                "subset_2_relative" = "#00B0F6", 
-                                "subset_2_soi" = "#9590FF", 
-                                "subset_2_delaunay" = "#E76BF3", 
-                                "subset_2_train" = "#FF62BC"),
-                     labels = c("ARIMA", 
-                                "Gabriel", 
-                                "Relative", 
-                                "SOI", 
-                                "Delaunay", 
-                                "Train"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/predicted_delaunay_etc_subset_free_1_lag_II.pdf", 
-       width = 26, height = 13, units = "cm")
+# Predicted vs.  fitted for unrestricted ----------------------------------
+g_2_delaunay_I <- plot_predicted_vs_fitted_I(mase_overview = mase_2_overview, 
+                                             mase_name = "free", 
+                                             counties_subset = all_counties[1:9],
+                                             number_counties = 1, 
+                                             types = c("subset_2_delaunay", 
+                                                       "subset_2_gabriel", 
+                                                       "subset_2_relative", 
+                                                       "subset_2_soi", 
+                                                       "subset_2_train", 
+                                                       "ARIMA"), 
+                                             color_types = c("ARIMA" = "grey", 
+                                                             "subset_2_gabriel" = "#00BFC4", 
+                                                             "subset_2_relative" = "#00B0F6", 
+                                                             "subset_2_soi" = "#9590FF", 
+                                                             "subset_2_delaunay" = "#E76BF3", 
+                                                             "subset_2_train" = "#FF62BC"))
+g_2_delaunay_II <- plot_predicted_vs_fitted_I(mase_overview = mase_2_overview,
+                                              mase_name = "free", 
+                                              counties_subset = all_counties[10:18], 
+                                              number_counties = 2, 
+                                              types = c("subset_2_delaunay", 
+                                                        "subset_2_gabriel", 
+                                                        "subset_2_relative", 
+                                                        "subset_2_soi", 
+                                                        "subset_2_train", 
+                                                        "ARIMA"), 
+                                              color_types = c("ARIMA" = "grey", 
+                                                              "subset_2_gabriel" = "#00BFC4", 
+                                                              "subset_2_relative" = "#00B0F6", 
+                                                              "subset_2_soi" = "#9590FF", 
+                                                              "subset_2_delaunay" = "#E76BF3", 
+                                                              "subset_2_train" = "#FF62BC"))
+g_2_delaunay_III <- plot_predicted_vs_fitted_I(mase_overview = mase_2_overview, 
+                                               mase_name = "free", 
+                                               counties_subset = all_counties[19:26], 
+                                               number_counties = 3, 
+                                               types = c("subset_2_delaunay", 
+                                                         "subset_2_gabriel", 
+                                                         "subset_2_relative", 
+                                                         "subset_2_soi", 
+                                                         "subset_2_train", 
+                                                         "ARIMA"), 
+                                               color_types = c("ARIMA" = "grey", 
+                                                               "subset_2_gabriel" = "#00BFC4", 
+                                                               "subset_2_relative" = "#00B0F6", 
+                                                               "subset_2_soi" = "#9590FF", 
+                                                               "subset_2_delaunay" = "#E76BF3", 
+                                                               "subset_2_train" = "#FF62BC"))
 
-
-
-
-ggplot(mase_2_overview %>% filter(type %in% c("subset_2_dnn", 
-                                              "subset_2_knn", 
-                                              "subset_2_queen", 
-                                              "subset_2_eco_hub", 
-                                              "subset_2_complete", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[1:13]), 
-       aes(x = time, 
-           y = predicted, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  geom_point(aes(x = time, 
-                 y = true), 
-             color = "darkgrey", 
-             shape = 2) +
-  geom_line(aes(x = time, 
-                y = true), 
-            linetype = "dotted", 
-            color = "darkgrey") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_2_knn" = "#F8766D", 
-                                "subset_2_dnn" = "#D89000", 
-                                "subset_2_complete" = "#A3A500", 
-                                "subset_2_queen" = "#39B600", 
-                                "subset_2_eco_hub" = "#00BF7D"),
-                     label = c("ARIMA", 
-                               "KNN", 
-                               "DNN", 
-                               "Complete",
-                               "Queen", 
-                               "Eco hub"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/predicted_knn_etc_subset_free_1_lag_I.pdf", 
-       width = 26, height = 13, units = "cm")
-
-
-ggplot(mase_2_overview %>% filter(type %in% c("subset_2_dnn", 
-                                              "subset_2_knn", 
-                                              "subset_2_queen", 
-                                              "subset_2_eco_hub", 
-                                              "subset_2_complete", 
-                                              "ARIMA"), 
-                                  CountyName %in% all_counties[14:26]), 
-       aes(x = time, 
-           y = predicted, 
-           color = type)) +
-  geom_point() +
-  geom_line(linetype = "dashed") +
-  geom_point(aes(x = time, 
-                 y = true), 
-             color = "darkgrey", 
-             shape = 2) +
-  geom_line(aes(x = time, 
-                y = true), 
-            linetype = "dotted", 
-            color = "darkgrey") +
-  xlab("Time") + 
-  ylab("MASE") +
-  facet_grid(~ CountyName) +
-  theme(legend.position = "bottom", 
-        axis.text.x = element_text(angle = 90, 
-                                   vjust = 0.5, 
-                                   hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
-                                "subset_2_knn" = "#F8766D", 
-                                "subset_2_dnn" = "#D89000", 
-                                "subset_2_complete" = "#A3A500", 
-                                "subset_2_queen" = "#39B600", 
-                                "subset_2_eco_hub" = "#00BF7D"),
-                     label = c("ARIMA", 
-                               "KNN", 
-                               "DNN", 
-                               "Complete",
-                               "Queen", 
-                               "Eco hub"), 
-                     name = "Network")
-ggsave("Figures/GNAR_pandemic_phases/predicted_knn_etc_subset_free_1_lag_II.pdf", 
-       width = 26, height = 13, units = "cm")
-
-
-
-
-
-
-
-
-
+g_2_knn_I <- plot_predicted_vs_fitted_II(mase_overview = mase_2_overview,
+                                         mase_name = "free",
+                                         counties_subset = all_counties[1:9],
+                                         number_counties = 1, 
+                                         types = c("subset_2_dnn", 
+                                                   "subset_2_knn", 
+                                                   "subset_2_queen", 
+                                                   "subset_2_eco_hub", 
+                                                   "subset_2_complete", 
+                                                   "ARIMA"), 
+                                         color_types = c("ARIMA" = "grey", 
+                                                         "subset_2_knn" = "#F8766D", 
+                                                         "subset_2_dnn" = "#D89000", 
+                                                         "subset_2_complete" = "#A3A500", 
+                                                         "subset_2_queen" = "#39B600", 
+                                                         "subset_2_eco_hub" = "#00BF7D"))
+g_2_knn_II <- plot_predicted_vs_fitted_II(mase_overview = mase_2_overview,
+                                          mase_name = "free",
+                                          counties_subset = all_counties[10:18],
+                                          number_counties = 2, 
+                                          types = c("subset_2_dnn", 
+                                                    "subset_2_knn", 
+                                                    "subset_2_queen", 
+                                                    "subset_2_eco_hub", 
+                                                    "subset_2_complete", 
+                                                    "ARIMA"), 
+                                          color_types = c("ARIMA" = "grey", 
+                                                          "subset_2_knn" = "#F8766D", 
+                                                          "subset_2_dnn" = "#D89000", 
+                                                          "subset_2_complete" = "#A3A500", 
+                                                          "subset_2_queen" = "#39B600", 
+                                                          "subset_2_eco_hub" = "#00BF7D"))
+g_2_knn_III <- plot_predicted_vs_fitted_II(mase_overview = mase_2_overview,
+                                           mase_name = "free",
+                                           counties_subset = all_counties[19:26],
+                                           number_counties = 3, 
+                                           types = c("subset_2_dnn", 
+                                                     "subset_2_knn", 
+                                                     "subset_2_queen", 
+                                                     "subset_2_eco_hub", 
+                                                     "subset_2_complete", 
+                                                     "ARIMA"), 
+                                           color_types = c("ARIMA" = "grey", 
+                                                           "subset_2_knn" = "#F8766D", 
+                                                           "subset_2_dnn" = "#D89000", 
+                                                           "subset_2_complete" = "#A3A500", 
+                                                           "subset_2_queen" = "#39B600", 
+                                                           "subset_2_eco_hub" = "#00BF7D"))
 
 # Best GNAR for restrictions ----------------------------------------------
 best_for_subset_all
@@ -3567,7 +3151,7 @@ residuals_restrictive <- check_and_plot_residuals_subset(model = best_model_rest
 ks_1_significant <- mase_1_queen %>% 
   split(mase_1_queen$CountyName) %>% 
   lapply(FUN = function(i) {
-    return(ks.test(i$res, "pnorm")$p.value > 0.025)
+    return(ks.test(i$res, "pnorm")$p.value <= 0.025)
   }) %>% 
   list.cbind() %>% 
   table()
@@ -3590,7 +3174,7 @@ residuals_free <- check_and_plot_residuals_subset(model = best_model_free,
 ks_2_significant <- mase_2_knn %>% 
   split(mase_2_knn$CountyName) %>% 
   lapply(FUN = function(i) {
-    return(ks.test(i$res, "pnorm")$p.value > 0.025)
+    return(ks.test(i$res, "pnorm")$p.value <= 0.025)
   }) %>% 
   list.cbind() %>% 
   table()
@@ -3603,6 +3187,25 @@ ks_2 <- mase_2_knn %>%
   list.cbind()
 
 
-# this is the end
 
+# Change in coefficients --------------------------------------------------
+best_for_subset_all
 
+parameter_development_phases(net_list = list(covid_net_queen_gnar, 
+                                             knn_21_gnar), 
+                             alpha_vector = c(5, 5),
+                             beta_list = list(c(2, 1, 1, 1, 1), 
+                                              c(1, 1, 1, 1, 0)),
+                             county_index = county_index_knn,
+                             globalalpha = TRUE,
+                             old = TRUE)
+
+param_knn <- parameter_development_phases(data_list = datasets_list_coarse , 
+                                          net_list = list(knn_21_gnar, 
+                                                          knn_21_gnar), 
+                                          alpha = c(5, 5), 
+                                          beta = list(c(1, 1, 1, 1, 0),
+                                                      c(1, 1, 1, 1, 0)), 
+                                          globalalpha = TRUE, 
+                                          old = TRUE, 
+                                          name = "phases_same_model")
