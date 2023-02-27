@@ -46,13 +46,19 @@ BIC_queen_10 <- fit_and_predict_for_restrictions_all_models(net = covid_net_quee
                                                             data_list = datasets_list_coarse,
                                                             forecast_window = 10)
 
+BIC_queen_20 <- fit_and_predict_for_restrictions_all_models(net = covid_net_queen_gnar,
+                                                            data_list = datasets_list_coarse,
+                                                            forecast_window = 20)
+
 # none for forecasting 5 weeks
 BIC_queen_5 %>% pull(BIC) %>% is.nan() %>% which()
 
 # NaN for forecasting 10 weeks
 BIC_queen_10 %>% filter(is.nan(BIC))
 
-# construct GNARfit models
+BIC_queen_20 %>% filter(is.nan(BIC))
+
+# construct GNARfit models: forecasting window 10, GNAR(5, (1, 0, 0, 0, 0))
 train_window <- dim(datasets_list_coarse[[1]])[1] - 10
 
 model_1 <- GNARfit(vts = datasets_list_coarse[[1]][1:train_window, ], 
@@ -65,7 +71,20 @@ model_1 <- GNARfit(vts = datasets_list_coarse[[1]][1:train_window, ],
 BIC(model_1)
 
 
+# construct GNARfit models: forecasting window 20, GNAR(1, 0)
+train_window <- dim(datasets_list_coarse[[1]])[1] - 20
 
+model_3 <- GNARfit(vts = datasets_list_coarse[[1]][1:train_window, ], 
+                   net = covid_net_queen_gnar,
+                   alphaOrder = 1, 
+                   betaOrder = 0, 
+                   globalalpha = TRUE
+)
+
+BIC(model_3)
+
+
+# Economic Hub 
 BIC_eco_hub_5 <- fit_and_predict_for_restrictions_all_models(net = covid_net_eco_hubs_gnar, 
                                                              numeric_vertices = TRUE, 
                                                              county_index = county_index_eco_hubs, 
