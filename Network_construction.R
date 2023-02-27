@@ -896,6 +896,84 @@ ggsave("Figures/MoransI/covid_moran_soi.pdf",
        width = 27, height = 14, unit = "cm")
 
 
+# KNN - DNN ---------------------------------------------------------------
+opt_knn_net <- knearneigh(x = coord_urbanisation, 
+                          k = 21, 
+                          longlat = TRUE) %>% 
+  knn2nb(row.names = coord_urbanisation %>% rownames())
+
+# create igraph object
+opt_knn_net_igraph <- neighborsDataFrame(nb = opt_knn_net) %>% 
+  graph_from_data_frame(directed = FALSE) %>% 
+  igraph::simplify()
+
+# create GNAR object 
+opt_knn_net_gnar <- opt_knn_net_igraph %>% 
+  igraphtoGNAR()
+
+# create ordered county index data frame
+county_index_opt_knn <- data.frame("CountyName" = opt_knn_net_igraph %>%
+                                     V() %>% 
+                                     names(), 
+                                   "index" = seq(1, 26))
+
+# compute network characteristics 
+graph_char_knn <- network_characteristics(opt_knn_net_igraph, 
+                                          "KNN")
+
+# visualise network 
+# plot(st_geometry(ireland_shp),
+#      border="grey")
+# plot(opt_knn_net,
+#      coord_urbanisation,
+#      add = TRUE,
+#      pch = 19, cex = 0.6)
+# text(coord_urbanisation[, 1],
+#      coord_urbanisation[, 2],
+#      labels = rownames(coord_urbanisation),
+#      cex = 0.8, font = 2, pos = 1)
+
+
+
+opt_dnn_net <- dnearneigh(x = coord_urbanisation, 
+                          d1 = 0, 
+                          d2 = 325,
+                          row.names = coord_urbanisation %>% rownames(),
+                          longlat = TRUE, 
+                          use_s2 = TRUE) 
+
+# create igraph object 
+opt_dnn_net_igraph <- neighborsDataFrame(opt_dnn_net) %>% 
+  graph_from_data_frame(directed = FALSE) %>% 
+  igraph::simplify() 
+
+# create GNAR object 
+opt_dnn_net_gnar <- opt_dnn_net_igraph %>% 
+  igraphtoGNAR()
+
+# create ordered county index data frame
+county_index_opt_dnn <- data.frame("CountyName" = opt_dnn_net_igraph %>%
+                                     V() %>% 
+                                     names(), 
+                                   "index" = seq(1, 26))
+
+# compute network characteristics
+graph_char_dnn <- network_characteristics(opt_dnn_net_igraph, 
+                                          "DNN")
+
+
+# visualise network 
+# plot(st_geometry(ireland_shp),
+#      border="grey")
+# plot(opt_dnn_net,
+#      coord_urbanisation,
+#      add = TRUE,
+#      pch = 19, cex = 0.6)
+# text(coord_urbanisation[, 1],
+#      coord_urbanisation[, 2],
+#      labels = rownames(coord_urbanisation),
+#      cex = 0.8, font = 2, pos = 1)
+
 
 
 # Save objects -----------------------------------------------------------

@@ -1291,6 +1291,181 @@ fit_and_predict_for_restrictions <- function(alpha_options = seq(1, 5),
 }
 
 
+fit_and_predict_for_restrictions_all_models <- function(alpha_options = seq(1, 5), 
+                                                        beta_options = list(0, 1, 
+                                                                            c(1, 0), 
+                                                                            c(1, 1), 
+                                                                            c(2, 0), 
+                                                                            c(2, 1), 
+                                                                            c(2, 2), 
+                                                                            c(1, 0, 0), 
+                                                                            c(2, 0, 0),
+                                                                            c(3, 0, 0),
+                                                                            c(4, 0, 0),
+                                                                            c(5, 0, 0),
+                                                                            c(1, 1, 0),
+                                                                            c(2, 1, 0),
+                                                                            c(3, 1, 0),
+                                                                            c(4, 1, 0),
+                                                                            c(5, 1, 0),
+                                                                            c(2, 2, 0),
+                                                                            c(1, 1, 1), 
+                                                                            c(2, 1, 1),
+                                                                            c(3, 1, 1),
+                                                                            c(4, 1, 1),
+                                                                            c(5, 1, 1),
+                                                                            c(2, 2, 1), 
+                                                                            c(2, 2, 2),
+                                                                            c(3, 2, 2), 
+                                                                            c(4, 2, 2),
+                                                                            c(5, 2, 2), 
+                                                                            c(1, 0, 0, 0), 
+                                                                            c(2, 0, 0, 0),
+                                                                            c(3, 0, 0, 0),
+                                                                            c(4, 0, 0, 0),
+                                                                            c(5, 0, 0, 0),
+                                                                            c(1, 1, 0, 0), 
+                                                                            c(2, 1, 0, 0),
+                                                                            c(3, 1, 0, 0),
+                                                                            c(4, 1, 0, 0),
+                                                                            c(5, 1, 0, 0),
+                                                                            c(2, 2, 0, 0),
+                                                                            c(1, 1, 1, 0), 
+                                                                            c(2, 1, 1, 0),
+                                                                            c(3, 1, 1, 0), 
+                                                                            c(4, 1, 1, 0),
+                                                                            c(5, 1, 1, 0),
+                                                                            c(2, 2, 1, 0), 
+                                                                            c(2, 2, 2, 0),
+                                                                            c(3, 2, 2, 0),
+                                                                            c(4, 2, 2, 0),
+                                                                            c(5, 2, 2, 0),
+                                                                            c(1, 1, 1, 1), 
+                                                                            c(2, 1, 1, 1),
+                                                                            c(3, 1, 1, 1), 
+                                                                            c(4, 1, 1, 1),
+                                                                            c(5, 1, 1, 1),
+                                                                            c(2, 2, 1, 1),
+                                                                            c(2, 2, 2, 1), 
+                                                                            c(3, 2, 2, 1), 
+                                                                            c(4, 2, 2, 1),
+                                                                            c(5, 2, 2, 1),
+                                                                            c(2, 2, 2, 2),
+                                                                            c(1, 0, 0, 0, 0),
+                                                                            c(2, 0, 0, 0, 0),
+                                                                            c(3, 0, 0, 0, 0), 
+                                                                            c(4, 0, 0, 0, 0),
+                                                                            c(5, 0, 0, 0, 0), 
+                                                                            c(6, 0, 0, 0, 0), 
+                                                                            c(7, 0, 0, 0, 0), 
+                                                                            c(1, 1, 0, 0, 0),
+                                                                            c(2, 1, 0, 0, 0), 
+                                                                            c(3, 1, 0, 0, 0),
+                                                                            c(4, 1, 0, 0, 0),
+                                                                            c(5, 1, 0, 0, 0),
+                                                                            c(6, 1, 0, 0, 0),
+                                                                            c(7, 1, 0, 0, 0),
+                                                                            c(2, 2, 0, 0, 0),
+                                                                            c(1, 1, 1, 0, 0), 
+                                                                            c(2, 1, 1, 0, 0),
+                                                                            c(3, 1, 1, 0, 0), 
+                                                                            c(4, 1, 1, 0, 0),
+                                                                            c(5, 1, 1, 0, 0),
+                                                                            c(6, 1, 1, 0, 0),
+                                                                            c(7, 1, 1, 0, 0),
+                                                                            c(2, 2, 1, 0, 0), 
+                                                                            c(2, 2, 2, 0, 0),
+                                                                            c(1, 1, 1, 1, 0), 
+                                                                            c(2, 1, 1, 1, 0),
+                                                                            c(3, 1, 1, 1, 0), 
+                                                                            c(4, 1, 1, 1, 0),
+                                                                            c(5, 1, 1, 1, 0),
+                                                                            c(6, 1, 1, 1, 0),
+                                                                            c(7, 1, 1, 1, 0),
+                                                                            c(2, 2, 1, 1, 0), 
+                                                                            c(2, 2, 2, 1, 0),
+                                                                            c(2, 2, 2, 2, 0),
+                                                                            c(3, 2, 2, 2, 0), 
+                                                                            c(4, 2, 2, 2, 0),
+                                                                            c(5, 2, 2, 2, 0),
+                                                                            c(6, 2, 2, 2, 0),
+                                                                            c(7, 2, 2, 2, 0),
+                                                                            c(1, 1, 1, 1, 1),
+                                                                            c(2, 1, 1, 1, 1),
+                                                                            c(3, 1, 1, 1, 1), 
+                                                                            c(4, 1, 1, 1, 1),
+                                                                            c(5, 1, 1, 1, 1),
+                                                                            c(6, 1, 1, 1, 1),
+                                                                            c(7, 1, 1, 1, 1),
+                                                                            c(2, 2, 1, 1, 1), 
+                                                                            c(2, 2, 2, 1, 1),
+                                                                            c(3, 2, 2, 1, 1),
+                                                                            c(4, 2, 2, 1, 1),
+                                                                            c(5, 2, 2, 1, 1),
+                                                                            c(6, 2, 2, 1, 1),
+                                                                            c(7, 2, 2, 1, 1),
+                                                                            c(2, 2, 2, 2, 1), 
+                                                                            c(2, 2, 2, 2, 2)
+                                                        ), # in form of list
+                                                        globalalpha = TRUE, 
+                                                        net, 
+                                                        data_list = datasets_list,  
+                                                        numeric_vertices = FALSE,
+                                                        
+                                                        # if not NULL, fit coefficients for 
+                                                        # vertex classes 
+                                                        weight_factor = NULL, 
+                                                        
+                                                        # if TRUE, INV-D weighting 
+                                                        inverse_distance = FALSE, 
+                                                        
+                                                        # Great circle distance matrix with county names as row- / colnames 
+                                                        distance_matrix = dist_urbanisation %>% as.matrix(), 
+                                                        
+                                                        # data frame with column CountyName and column weight
+                                                        weight_index = population_weight, 
+                                                        
+                                                        # data frame with column CountyName and its numerical encoding 
+                                                        county_index = NULL, 
+                                                        
+                                                        # if TRUE, the original GNARfit() function is applied
+                                                        old = TRUE,
+                                                        
+                                                        forecast_window = 5,
+                                                        upper_limit = 5) {
+  
+  # construct valid beta options list 
+  exclude <- lapply(beta_options, 
+                    FUN = function(i) any(i > upper_limit)) %>% 
+    unlist()
+  
+  beta_valid_options <- beta_options[!exclude]
+  
+  param <- list()
+  
+  for (i in seq(1, length(data_list))) {
+    res <- fit_and_predict_for_many(vts = data_list[[i]], 
+                                    net = net, 
+                                    alpha_options = alpha_options, 
+                                    beta_options = beta_valid_options, 
+                                    globalalpha = globalalpha,
+                                    old = old,
+                                    forecast_window = forecast_window, 
+                                    numeric_vertices = numeric_vertices, 
+                                    weight_factor = weight_factor, 
+                                    inverse_distance = inverse_distance, 
+                                    distance_matrix = distance_matrix, 
+                                    weight_index = weight_index,
+                                    county_index = county_index)
+    
+    param[[i]] <- res %>% 
+      mutate(data_subset = rep(i, nrow(res)))
+  }
+  param_df <- do.call(rbind.data.frame, param)
+  
+  return(param_df[, c(3, 1, 2, 4)])
+}
+
 # MASE --------------------------------------------------------------------
 # compute MASE for certain counties 
 compute_MASE <- function(model, 
