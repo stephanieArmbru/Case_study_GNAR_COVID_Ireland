@@ -358,6 +358,12 @@ datasets_list_coarse <- list("restrictive" = data_restrictive_NA %>%
                                as.matrix())
 
 
+# Visualize 
+data_plot <- COVID_weekly_data %>% 
+  mutate(coarse_phase = ifelse(phase == 1 | phase == 3, 0, 1))
+
+
+
 data_plot <- rbind(data_restrictive %>% 
                      mutate(phase = "restrictive", 
                             yw = rownames(data_restrictive) %>% 
@@ -370,16 +376,23 @@ data_plot <- rbind(data_restrictive %>%
 
 # plot restriction phases 
 ggplot(data_plot) +
+  geom_rect(aes(xmin = yw, xmax = lead(yw),
+                ymin = -Inf, ymax = Inf,
+                fill = strain)) +
   geom_line(aes(x = yw, 
                 y = weeklyCases, 
-                color = phase, 
-                group = county)) +
+                group = CountyName, 
+                color = coarse_phase %>% as.factor())) +
   xlab("Time") +
   ylab("COVID-19 ID") + 
   scale_color_brewer(palette = "Set1") +
+  scale_fill_manual(values = c("Original" = "#FAFAFA", 
+                               "Alpha" = "#eeeeee", 
+                               "Delta" = "#E1E5E8", 
+                               "Omicron I" = "#D0D5D9", 
+                               "Omicron II" = "#ABB0B8")) +
   theme(legend.position = "none", 
-        plot.margin = unit(c(1, 1, 1, 1), "cm")) +
-  scale_x_continuous(breaks = splits %>% as.Date())
+        plot.margin = unit(c(1, 1, 1, 1), "cm"))
 ggsave("Figures/Visualisation/covid_id_pandemic_phases.pdf", 
        width = 25, height = 14, unit = "cm")
 
