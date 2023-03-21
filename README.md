@@ -1,6 +1,6 @@
 # Instructions 
 
-R code for paper Armbruster and Reinert, 2023, "Case study for network-based time series models: COVID-19 incidence in the Republic of Ireland"
+R code for paper Armbruster and Reinert, 2023, "COVID-19 incidence in the Republic of Ireland:  A case study for network-based time series models"
 
 The structure of the code is modular. <br />
 Folder Data includes the following datasets: <br />
