@@ -640,70 +640,6 @@ county_index_complete <- data.frame("CountyName" = complete_net_igraph %>%
                                     "index" = seq(1, 26))
 
 
-# Network characteristics -------------------------------------------------
-# Queen
-graph_queen <- network_characteristics(covid_net_queen_igraph, 
-                                       "queen")
-# Eco hub 
-graph_eco_hub <- network_characteristics(covid_net_eco_hubs_igraph, 
-                                         "eco_hub")
-# Railway-based 
-graph_train <- network_characteristics(covid_net_train_igraph, 
-                                       "train")
-# Delaunay triangulation
-graph_delaunay <- network_characteristics(covid_net_delaunay_igraph, 
-                                          "delaunay")
-# Gabriel 
-graph_gabriel <- network_characteristics(covid_net_gabriel_igraph, 
-                                         "gabriel")
-# Relative 
-graph_relative <- network_characteristics(covid_net_relative_igraph, 
-                                          "relative")
-# Sphere of influence 
-graph_soi <- network_characteristics(covid_net_soi_igraph, 
-                                     "soi")
-
-# compare all networks (but KNN, DNN and Complete)
-graph_overview <- cbind("metric" = graph_queen$metric,
-                        "delauany" = graph_delaunay$delaunay %>% round(2), 
-                        "gabriel" = graph_gabriel$gabriel %>% round(2), 
-                        "soi" = graph_soi$soi %>% round(2),                         
-                        "relative" = graph_relative$relative %>% round(2), 
-                        "queen" = graph_queen$queen %>% round(2), 
-                        "eco_hub"= graph_eco_hub$eco_hub %>% round(2), 
-                        "train" = graph_train$train %>% round(2)
-)
-
-# for latex 
-# limited characteristics 
-
-strCaption <- "Overview of network characteristics for \\textbf{Delaunay triangulation}, 
-\\textbf{Gabriel}, \\textbf{SOI}, \\textbf{Relative neighbourhood (Rel. neigh.)}, 
-\\textbf{Queen's contiguity}, \\textbf{Economic (Eco.) hub}, \\textbf{Railway-based} network,  
-including average (av.) degree, average (av.) shortest path length (SPL), 
-average (av.) local clustering (clust.). The average shortest path length and average local clustering 
-coefficient for a Bernoulli Random Graph B(n, m) for each network is also reported."
-print(xtable(graph_overview[c(1, 3, 5, 8, 9), ],
-             digits=2,
-             caption=strCaption,
-             label="tab:network_char", 
-             align = c("", "l", "|", "r", "r", "r", "r", "r", "r", "r")),
-      include.rownames=FALSE, 
-      include.colnames=FALSE, 
-      caption.placement="bottom",
-      hline.after=NULL,
-      add.to.row = list(pos = list(-1,
-                                   nrow(graph_overview[c(1, 3, 5, 8, 9), ])),
-                        command = c(paste("\\toprule \n",
-                                          " Metric & Delaunay & Gabriel & 
-                                           SOI & Rel. neigh. & Queen & 
-                                           Eco. hub & Railway \\\\\n",
-                                          "\\midrule \n"),
-                                    "\\bottomrule \n")
-      )
-)
-
-
 # Moran's I ---------------------------------------------------------------
 # spatial autocorrelation measured as Moran's I for each network
 # Queen 
@@ -973,6 +909,89 @@ graph_char_dnn <- network_characteristics(opt_dnn_net_igraph,
 #      coord_urbanisation[, 2],
 #      labels = rownames(coord_urbanisation),
 #      cex = 0.8, font = 2, pos = 1)
+
+
+
+# Network characteristics -------------------------------------------------
+# Queen
+graph_queen <- network_characteristics(covid_net_queen_igraph, 
+                                       "queen")
+# Eco hub 
+graph_eco_hub <- network_characteristics(covid_net_eco_hubs_igraph, 
+                                         "eco_hub")
+# Railway-based 
+graph_train <- network_characteristics(covid_net_train_igraph, 
+                                       "train")
+# Delaunay triangulation
+graph_delaunay <- network_characteristics(covid_net_delaunay_igraph, 
+                                          "delaunay")
+# Gabriel 
+graph_gabriel <- network_characteristics(covid_net_gabriel_igraph, 
+                                         "gabriel")
+# Relative 
+graph_relative <- network_characteristics(covid_net_relative_igraph, 
+                                          "relative")
+# Sphere of influence 
+graph_soi <- network_characteristics(covid_net_soi_igraph, 
+                                     "soi")
+
+# KNN k = 21
+graph_knn <- network_characteristics(opt_knn_net_igraph, 
+                                     "knn")
+
+# DNN d = 325
+graph_dnn <- network_characteristics(opt_dnn_net_igraph, 
+                                     "dnn")
+
+
+
+
+# compare all networks (but KNN, DNN and Complete)
+graph_overview <- cbind("metric" = graph_queen$metric,
+                        "delauany" = graph_delaunay$delaunay %>% round(2), 
+                        "gabriel" = graph_gabriel$gabriel %>% round(2), 
+                        "soi" = graph_soi$soi %>% round(2),                         
+                        "relative" = graph_relative$relative %>% round(2), 
+                        "queen" = graph_queen$queen %>% round(2), 
+                        "eco_hub"= graph_eco_hub$eco_hub %>% round(2), 
+                        "train" = graph_train$train %>% round(2), 
+                        "knn" = graph_knn$knn %>% round(2), 
+                        "dnn" = graph_dnn$dnn %>% round(2)
+)
+
+# for latex 
+# limited characteristics 
+
+strCaption <- "Overview of network characteristics for the \\textbf{Railway-based},
+\\textbf{Queen's contiguity}, \\textbf{Economic (Eco.) hub}, \\textbf{KNN} ($k = 21$),
+\\textbf{DNN} ($d = 325$), \\textbf{Delaunay triangulation}, 
+\\textbf{Gabriel}, \\textbf{SOI}, \\textbf{Relative neighbourhood (Rel. neigh.)} network; 
+including average (av.) degree, average (av.) shortest path length (SPL), 
+average (av.) local clustering (clust.). The average shortest path length and average local clustering 
+coefficient for a Bernoulli Random Graph B(n, m) for each network is also reported."
+print(xtable(graph_overview[c(1, 3, 5, 8, 9), c(1, 8, 6, 7, 9, 10, 2, 3, 4, 5)],
+             digits=2,
+             caption=strCaption,
+             label="tab:network_char", 
+             align = c("", "l", "|", "r", "r", "r", "r", "r", "r", "r", "r", "r")),
+      include.rownames=FALSE, 
+      include.colnames=FALSE, 
+      caption.placement="bottom",
+      hline.after=NULL,
+      add.to.row = list(pos = list(-1,
+                                   nrow(graph_overview[c(1, 3, 5, 8, 9), c(1, 8, 6, 7, 9, 10, 2, 3, 4, 5)])),
+                        command = c(paste("\\toprule \n",
+                                          " Metric & Railway & Queen & Eco. hub 
+                                          & KNN & DNN & 
+                                          Delaunay & Gabriel &
+                                           SOI & Rel. neigh.  \\\\\n",
+                                          "\\midrule \n"),
+                                    "\\bottomrule \n")
+      )
+)
+
+
+
 
 
 
