@@ -1123,6 +1123,8 @@ county_index_opt_dnn <- data.frame("CountyName" = opt_dnn_net_igraph %>%
 graph_char_dnn <- network_characteristics(opt_dnn_net_igraph, 
                                           "DNN")
 
+
+
 # for latex 
 strCaption <- paste0("Summary for the \\textbf{DNN} network, av. short for 
                      average, s.d. short for standard deviation")
@@ -1143,6 +1145,10 @@ print(xtable(graph_char_dnn,
                                     "\\bottomrule \n")
       )
 )
+
+# for complete graph
+graph_complete <- network_characteristics(complete_net_igraph, 
+                                          "complete")
 
 # Network characteristics for KNN and DNN
 graph_knn_dnn <- cbind(graph_char_knn, 
@@ -1279,6 +1285,7 @@ model_queen <- fit_and_predict(alpha = 4,
 # compute residuals for fitted values and plot in scatter plot
 residuals_queen <- check_and_plot_residuals(model = model_queen, 
                                             network_name = "queen")
+
 
 # Eco hubs
 model_eco_hubs <- fit_and_predict(alpha = 5, 
@@ -1433,43 +1440,53 @@ print(xtable(best_model_overview_all[c(2, 4, 8, 7, 1, 10, 9, 5, 3, 6), ],
 
 # Queen
 mase_queen <- compute_MASE(model = model_queen, 
-                           network_name = "Queen")
+                           network_name = "Queen",
+                           counties = counties)
 
 # Eco hubs
 mase_eco_hubs <- compute_MASE(model = model_eco_hubs, 
-                              network_name = "Eco hubs")
+                              network_name = "Eco hubs",
+                              counties = counties)
 
 # Train 
 mase_train <- compute_MASE(model = model_train, 
-                           network_name = "Train")
+                           network_name = "Train",
+                           counties = counties)
 
 # Delaunay 
 mase_delaunay <- compute_MASE(model = model_delaunay, 
-                              network_name = "Delaunay")
+                              network_name = "Delaunay",
+                              counties = counties)
 
 # Gabriel 
 mase_gabriel <- compute_MASE(model = model_gabriel, 
-                             network_name = "Gabriel")
+                             network_name = "Gabriel", 
+                             counties = counties)
 
 # Relative 
 mase_relative <- compute_MASE(model = model_relative, 
-                              network_name = "Relative")
+                              network_name = "Relative",
+                              counties = counties)
 
 # Soi
 mase_soi <- compute_MASE(model = model_soi, 
-                         network_name = "SOI")
+                         network_name = "SOI",
+                         counties = counties)
 
 # KNN
 mase_knn <- compute_MASE(model = opt_knn_mod, 
-                         network_name = "KNN")
+                         network_name = "KNN",
+                         counties = counties)
 
 # DNN
 mase_dnn <- compute_MASE(model = opt_dnn_mod, 
-                         network_name = "DNN")
+                         network_name = "DNN",
+                         counties = counties)
 
 # Complete 
 mase_complete <- compute_MASE(model = model_complete, 
-                              network_name = "Complete")
+                              network_name = "Complete",
+                              counties = counties)
 
 # summarise all MASE values for each network in a data frame  
 mase_overview <- rbind.data.frame(mase_queen, 
@@ -1575,6 +1592,21 @@ ggplot(mase_overview %>% filter(type %in% c("DNN",
                      name = "Network")
 ggsave("Figures/GNAR_entire_dataset/mase_knn_etc_zoom.pdf", 
        width = 26, height = 13, units = "cm")
+
+
+# KS-test -----------------------------------------------------------------
+ks_queen <- ks_residuals(mase_queen)
+ks_eco <- ks_residuals(mase_eco_hubs)
+ks_train <- ks_residuals(mase_train)
+ks_delaunay <- ks_residuals(mase_delaunay)
+ks_gabriel <- ks_residuals(mase_gabriel)
+ks_relative <- ks_residuals(mase_relative)
+ks_soi <- ks_residuals(mase_soi)
+ks_complete <- ks_residuals(mase_complete)
+ks_knn <- ks_residuals(mase_knn)
+ks_dnn <- ks_residuals(mase_dnn)
+
+
 
 # Scale-free --------------------------------------------------------------
 # analyse log-log behaviour and regression R squared

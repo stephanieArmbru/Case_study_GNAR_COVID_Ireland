@@ -224,7 +224,7 @@ RSS <- function(GNARfit_object) {
 moran_I <- function(data = COVID_weekly_data,
                     coords = coord_urbanisation, 
                     nb_list, 
-                    inverse_distance = FALSE) {
+                    inverse_distance = TRUE) {
   moran_list <- list()
   
   # compute Great Circle distances 
@@ -232,7 +232,7 @@ moran_I <- function(data = COVID_weekly_data,
                     coords = c("X", "Y"), 
                     remove = FALSE)
   
-  if (!inverse_distance) {
+  if (inverse_distance) {
     dist_weights <- nb2listwdist(nb_list, 
                                  as(geoms,
                                     "Spatial"), 
@@ -241,7 +241,7 @@ moran_I <- function(data = COVID_weekly_data,
                                  style = "C",
                                  longlat = TRUE)
   }
-  if (inverse_distance) {
+  if (!inverse_distance) {
     dist_weights <- nb2listw(nb_list, 
                              style = "C")
   }
@@ -258,6 +258,104 @@ moran_I <- function(data = COVID_weekly_data,
   moran_df <- do.call(rbind.data.frame, moran_list)
   colnames(moran_df) <- "moran"
   moran_df$dates <- as.Date(names(moran_list))
+  
+  return(moran_df)
+}
+
+# compute Moran's test for each county 
+moran_test <- function(data = COVID_weekly_data,
+                       coords = coord_urbanisation, 
+                       nb_list) {
+  moran_list <- list()
+  
+  # compute Great Circle distances 
+  geoms <- st_as_sf(coords %>% as.data.frame(), 
+                    coords = c("X", "Y"), 
+                    remove = FALSE)
+  
+  dist_weights <- nb2listwdist(nb_list, 
+                               as(geoms,
+                                  "Spatial"), 
+                               type = "idw", 
+                               alpha = 1, # inverse distance
+                               style = "C",
+                               longlat = TRUE)
+  
+  # for each date, compute Moran's test statistic and extract p-value
+  dates <- data$yw %>% 
+    unique() %>% 
+    as.character()
+  
+  restrictive_dates <- c(seq(from = as.Date("01.03.2020", 
+                                            format = "%d.%m.%Y"), 
+                             to = as.Date("18.08.2020", 
+                                          format = "%d.%m.%Y"), 
+                             by = 7), 
+                         seq(from = as.Date("26.12.2020", 
+                                            format = "%d.%m.%Y"), 
+                             to = as.Date("10.05.2021", 
+                                          format = "%d.%m.%Y"), 
+                             by = 7)
+  )
+  
+  for (date in dates[-1]) {
+    if (date %in% restrictive_dates) {
+      moran_list[[date]] <- moran.test(x = data[data$yw == date, ]$weeklyCases,
+                                       listw = dist_weights, 
+                                       randomisation = TRUE, 
+                                       alternative = "less")$p.value
+    } else {
+      moran_list[[date]] <- moran.test(x = data[data$yw == date, ]$weeklyCases,
+                                       listw = dist_weights, 
+                                       randomisation = TRUE, 
+                                       alternative = "greater")$p.value
+    }
+  }
+  
+  moran_df <- moran_list %>% list.rbind() %>% as.data.frame()
+  colnames(moran_df) <- "p_values"
+  moran_df$dates <- as.Date(rownames(moran_df))
+  
+  return(moran_df)
+}
+
+## compute Moran's test for residuals for each county 
+moran_test_residuals <- function(data,
+                                 coords = coord_urbanisation, 
+                                 nb_list) {
+  moran_list <- list()
+  
+  # compute Great Circle distances 
+  geoms <- st_as_sf(coords %>% as.data.frame(), 
+                    coords = c("X", "Y"), 
+                    remove = FALSE)
+  
+  dist_weights <- nb2listwdist(nb_list, 
+                               as(geoms,
+                                  "Spatial"), 
+                               type = "idw", 
+                               alpha = 1, # inverse distance
+                               style = "C",
+                               longlat = TRUE)
+  
+  # for each date, compute Moran's test statistic and extract p-value
+  dates <- data$time %>% 
+    unique() %>% 
+    as.character()
+  
+  
+  for (date in dates[-1]) {
+    moran_list[[date]] <- moran.test(x = data[data$time == date, ]$residuals,
+                                     listw = dist_weights, 
+                                     randomisation = TRUE, 
+                                     alternative = "two.sided")$p.value
+  }
+  
+  moran_df <- moran_list %>% 
+    list.rbind() %>% 
+    as.data.frame()
+  colnames(moran_df) <- "p_values"
+  moran_df$dates <- as.Date(rownames(moran_df))
   
   return(moran_df)
 }
@@ -781,6 +879,63 @@ check_and_plot_residuals_subset <- function(model,
   }
   return(fitted_df)
 }
+
+# KS test for normality of residuals 
+ks_residuals <- function(res) {
+  res %>% 
+    split(res$CountyName) %>% 
+    lapply(FUN = function(i) {
+      return(ks.test(i$res, "pnorm")$p.value <= 0.025)
+    }) %>% 
+    list.cbind() %>% 
+    table() %>% 
+    return()
+}
+
+
+# compute autocorrelation in residuals for each county 
+autocorrelation <- function(res, 
+                            df_alpha = 5) {
+  
+  results <- matrix(NA, nrow = 26, ncol = 3)
+  i <- 1
+  for (county in res$CountyName %>% unique()) {
+    
+    res_county <- res %>% 
+      filter(CountyName == county)
+    
+    lag <- 1
+    
+    significant <- TRUE
+    while (significant) {
+      BL_test <- Box.test(x = res_county$res, 
+                          type = "Ljung-Box",
+                          lag = df_alpha + lag, 
+                          fitdf = df_alpha)
+      
+      if (df_alpha + lag >= length(res_county$res)) {
+        results[i, ] <- c(county, 
+                          NA, 
+                          NA)
+        
+        break()
+      }
+      
+      if (BL_test$p.value > 0.05) {
+        significant <- FALSE
+        
+        results[i, ] <- c(county, 
+                          df_alpha + lag, 
+                          BL_test$p.value)
+        break()
+      }
+      lag <- lag + 1
+    }
+    i <- i + 1
+  }
+  return(results)
+}
+
 
 # Restrictions - best model -----------------------------------------------
 # analyse the change in coefficient values for best performing GNAR models 

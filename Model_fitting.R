@@ -927,7 +927,7 @@ m_2_knn_III <- plot_mase_II(mase_overview = mase_2_overview,
                                             "subset_2_eco_hub" = "#00BF7D"))
 
 
-# Predicted vs.  fitted for unrestricted ----------------------------------
+# Predicted vs. fitted for unrestricted ----------------------------------
 g_2_delaunay_I <- plot_predicted_vs_fitted_I(mase_overview = mase_2_overview, 
                                              mase_name = "free", 
                                              counties_subset = all_counties[1:9],
@@ -1052,9 +1052,19 @@ mean_restrictive <- mase_1_queen %>%
   dplyr::select(res, mase) %>% 
   colMeans()
 
+sd_restrictive <- mase_1_queen %>% 
+  dplyr::select(res, mase) %>% 
+  summarise(sd_res = sd(res), 
+            sd_mase = sd(mase))
+
 mean_free <- mase_2_knn %>% 
   dplyr::select(res, mase) %>% 
   colMeans()
+
+sd_free <- mase_2_knn %>% 
+  dplyr::select(res, mase) %>%
+  summarise(sd_res = sd(res), 
+            sd_mase = sd(mase))
 
 
 best_for_subset_all <- cbind(best_for_subset_all,
@@ -1062,6 +1072,8 @@ best_for_subset_all <- cbind(best_for_subset_all,
                                        AIC(best_model_free)), 
                              rbind(mean_restrictive, 
                                    mean_free))
+
+
 
 # for latex 
 strCaption <- "Overview over the best performing model and network for 
@@ -1105,6 +1117,17 @@ mean_arima_df <- data.frame(subset = c("Restricted",
                colMeans()), 
         mean_arima_BIC)
 
+sd_arima_restricted <- mase_arima_restrictive %>% 
+  dplyr::select(mase, res) %>% 
+  summarise(sd_res = sd(res),
+            sd_mase = sd(mase))
+
+sd_arima_free <- mase_arima_free %>% 
+  dplyr::select(mase, res) %>% 
+  summarise(sd_res = sd(res),
+            sd_mase = sd(mase))
+
+
 # for latex
 print(xtable(mean_arima_df[, c(1, 2, 3, 7, 5, 6)],
              digits=2,
@@ -1138,13 +1161,7 @@ residuals_restrictive <- check_and_plot_residuals_subset(model = best_model_rest
                                                          counties = all_counties, 
                                                          dataset_name = "GNAR_pandemic_phases")
 
-ks_1_significant <- mase_1_queen %>% 
-  split(mase_1_queen$CountyName) %>% 
-  lapply(FUN = function(i) {
-    return(ks.test(i$res, "pnorm")$p.value <= 0.025)
-  }) %>% 
-  list.cbind() %>% 
-  table()
+ks_1_significant <- ks_residuals(mase_1_queen)
 
 ks_1 <- mase_1_queen %>% 
   split(mase_1_queen$CountyName) %>% 
@@ -1163,13 +1180,7 @@ residuals_free <- check_and_plot_residuals_subset(model = best_model_free,
                                                   counties = all_counties, 
                                                   dataset_name = "GNAR_pandemic_phases")
 
-ks_2_significant <- mase_2_knn %>% 
-  split(mase_2_knn$CountyName) %>% 
-  lapply(FUN = function(i) {
-    return(ks.test(i$res, "pnorm")$p.value <= 0.025)
-  }) %>% 
-  list.cbind() %>% 
-  table()
+ks_2_significant <- ks_residuals(mase_2_knn)
 
 ks_2 <- mase_2_knn %>% 
   split(mase_2_knn$CountyName) %>% 
@@ -1180,8 +1191,8 @@ ks_2 <- mase_2_knn %>%
   as.data.frame() %>% 
   rownames_to_column(var = "CountyName")
 
-# MASE for each county ----------------------------------------------------
 
+# KS-test -----------------------------------------------------------------
 mean_restrictive_counties <- mase_1_queen %>% 
   dplyr::select(CountyName, res, mase) %>% 
   group_by(CountyName) %>% 
@@ -1192,6 +1203,10 @@ overview_restrictive_counties <- left_join(mean_restrictive_counties,
                                            ks_1, 
                                            by = "CountyName")
 
+# counties with significant results 
+overview_restrictive_counties[which(overview_restrictive_counties$V1 <= 0.025), 
+                              ]$CountyName
+
 mean_free_counties <- mase_2_knn %>% 
   dplyr::select(CountyName, res, mase) %>% 
   group_by(CountyName) %>% 
@@ -1199,11 +1214,16 @@ mean_free_counties <- mase_2_knn %>%
             mase = mean(mase))
 
 overview_free_counties <- left_join(mean_free_counties, 
-                                           ks_2, 
-                                           by = "CountyName")
+                                    ks_2, 
+                                    by = "CountyName")
+
+# counties with insignificant results 
+overview_free_counties[which(overview_free_counties$V1 > 0.025), 
+]$CountyName
 
 
-overview_counties <- left_join(overview_restrictive_counties, overview_free_counties, 
+overview_counties <- left_join(overview_restrictive_counties, 
+                               overview_free_counties, 
                                by = "CountyName")
 
 # for latex 
@@ -1230,6 +1250,62 @@ print(xtable(overview_counties,
                                     "\\bottomrule \n")
       )
 )
+
+
+# Autocorrelation ---------------------------------------------------------
+# Ljung Box test for each county individually 
+
+AC_restrictive <- autocorrelation(res = residuals_restrictive)
+AC_free <- autocorrelation(res = residuals_free)
+
+
+# Spatial correlation -----------------------------------------------------
+# Moran's I on residuals 
+load("Data/RObjects/nb_list.RData")
+
+SC_restrictive <- moran_test_residuals(data = residuals_restrictive %>% na.omit(), 
+                                       nb_list = nb_list_queen)
+
+SC_free <- moran_test_residuals(data = residuals_free %>% na.omit(), 
+                                       nb_list = opt_knn_net)
+
+
+
+
+
+# Visualization 
+ggplot(SC_restrictive, 
+       aes(x = dates, 
+           y = p_values)) +
+  geom_line() +
+  geom_hline(aes(yintercept = 0.05), 
+             color = "grey", 
+             linetype = "dashed") +
+  xlab("Time") +
+  ylab("p-value for Moran's test") +
+  labs(title = "Restricted phase") +
+  scale_color_brewer(palette = "Set1") + 
+  theme(legend.position = "None")
+ggsave("Figures/MoransI/covid_morans_test_restrictive.pdf", 
+       width = 27, height = 14, unit = "cm")
+
+
+ggplot(SC_free, 
+       aes(x = dates, 
+           y = p_values)) +
+  geom_line() +
+  geom_hline(aes(yintercept = 0.05), 
+             color = "grey", 
+             linetype = "dashed") +
+  xlab("Time") +
+  ylab("p-value for Moran's test") +
+  labs(title = "Unrestricted phase") +
+  scale_color_brewer(palette = "Set1") + 
+  theme(legend.position = "None")
+ggsave("Figures/MoransI/covid_morans_test_free.pdf", 
+       width = 27, height = 14, unit = "cm")
+
+
 
 # Change in coefficients --------------------------------------------------
 best_for_subset_all

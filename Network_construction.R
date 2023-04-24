@@ -271,7 +271,7 @@ leaflet(ireland) %>%
 #               col.line = "black")
 
 
-# Network construction ----------------------------------------------------
+i# Network construction ----------------------------------------------------
 # 1. Queen's contiguity: connection to all neighbouring counties 
 nb_list_queen <- poly2nb(ireland, 
                          queen = TRUE, 
@@ -645,6 +645,9 @@ county_index_complete <- data.frame("CountyName" = complete_net_igraph %>%
 # Queen 
 moran_queen <- moran_I(data = COVID_weekly_data, 
                        nb_list = nb_list_queen)
+moran_test_queen <- moran.test(x = COVID_weekly_data, 
+                               listw = nb_list_queen)
+
 
 ggplot(moran_queen, 
        aes(x = dates, 
@@ -996,6 +999,11 @@ print(xtable(graph_overview[c(1, 3, 5, 8, 9), c(1, 8, 6, 7, 9, 10, 2, 3, 4, 5)],
 
 
 # Save objects -----------------------------------------------------------
+# save neighbourhood lists 
+save(list = c("nb_list_queen", 
+              "opt_knn_net"),
+     file = "Data/RObjects/nb_list.RData")
+
 # save GNAR objects for every network
 save(list = c("covid_net_queen_gnar",
               "covid_net_eco_hubs_gnar",
