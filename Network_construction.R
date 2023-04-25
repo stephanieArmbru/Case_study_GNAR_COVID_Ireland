@@ -271,7 +271,7 @@ leaflet(ireland) %>%
 #               col.line = "black")
 
 
-i# Network construction ----------------------------------------------------
+# Network construction ----------------------------------------------------
 # 1. Queen's contiguity: connection to all neighbouring counties 
 nb_list_queen <- poly2nb(ireland, 
                          queen = TRUE, 
@@ -645,8 +645,9 @@ county_index_complete <- data.frame("CountyName" = complete_net_igraph %>%
 # Queen 
 moran_queen <- moran_I(data = COVID_weekly_data, 
                        nb_list = nb_list_queen)
-moran_test_queen <- moran.test(x = COVID_weekly_data, 
-                               listw = nb_list_queen)
+moran_test_queen <- moran_test(data = COVID_weekly_data, 
+                               nb_list = nb_list_queen, 
+                               name = "queen")
 
 
 ggplot(moran_queen, 
@@ -676,6 +677,9 @@ ggsave("Figures/MoransI/covid_moran_queen.pdf",
 # Economic hubs 
 moran_eco_hubs <- moran_I(data = COVID_weekly_data, 
                           nb_list = nb_eco_hubs)
+moran_test_eco_hubs <- moran_test(data = COVID_weekly_data, 
+                                  nb_list = nb_eco_hubs, 
+                                  name = "eco_hubs")
 
 ggplot(moran_eco_hubs, 
        aes(x = dates, 
@@ -702,7 +706,10 @@ ggsave("Figures/MoransI/covid_moran_eco_hubs.pdf",
 
 # Railway-based
 moran_train <- moran_I(data = COVID_weekly_data, 
-                       nb_list = nb_list_train)
+                       nb_list = nb_list_train) 
+moran_test_train <- moran_test(data = COVID_weekly_data, 
+                               nb_list = nb_list_train, 
+                               name = "train")
 
 ggplot(moran_train, 
        aes(x = dates, 
@@ -730,6 +737,10 @@ ggsave("Figures/MoransI/covid_moran_train.pdf",
 # Delaunay 
 moran_delaunay <- moran_I(data = COVID_weekly_data, 
                           nb_list = nb_list_delaunay)
+moran_test_delaunay <- moran_test(data = COVID_weekly_data, 
+                               nb_list = nb_list_delaunay, 
+                               name = "delaunay")
+
 ggplot(moran_delaunay, 
        aes(x = dates, 
            y = moran)) +
@@ -756,6 +767,9 @@ ggsave("Figures/MoransI/covid_moran_delaunay.pdf",
 # Gabriel 
 moran_gabriel <- moran_I(data = COVID_weekly_data, 
                          nb_list = nb_list_gabriel)
+moran_test_gabriel <- moran_test(data = COVID_weekly_data, 
+                               nb_list = nb_list_gabriel, 
+                               name = "gabriel")
 
 ggplot(moran_gabriel, 
        aes(x = dates, 
@@ -783,6 +797,9 @@ ggsave("Figures/MoransI/covid_moran_gabriel.pdf",
 # Relative 
 moran_relative <- moran_I(data = COVID_weekly_data, 
                           nb_list = nb_list_relative)
+moran_test_relative <- moran_test(data = COVID_weekly_data, 
+                                  nb_list = nb_list_relative, 
+                                  name = "relative")
 
 ggplot(moran_relative, 
        aes(x = dates, 
@@ -811,6 +828,9 @@ ggsave("Figures/MoransI/covid_moran_relative.pdf",
 # SOI
 moran_soi <- moran_I(data = COVID_weekly_data, 
                      nb_list = nb_list_soi)
+moran_test_soi <- moran_test(data = COVID_weekly_data, 
+                               nb_list = nb_list_soi, 
+                               name = "soi")
 ggplot(moran_soi, 
        aes(x = dates, 
            y = moran)) +

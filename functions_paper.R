@@ -265,8 +265,10 @@ moran_I <- function(data = COVID_weekly_data,
 # compute Moran's test for each county 
 moran_test <- function(data = COVID_weekly_data,
                        coords = coord_urbanisation, 
-                       nb_list) {
+                       nb_list, 
+                       name) {
   moran_list <- list()
+  moran_CI_list <- list()
   
   # compute Great Circle distances 
   geoms <- st_as_sf(coords %>% as.data.frame(), 
@@ -300,22 +302,58 @@ moran_test <- function(data = COVID_weekly_data,
   
   for (date in dates[-1]) {
     if (date %in% restrictive_dates) {
-      moran_list[[date]] <- moran.test(x = data[data$yw == date, ]$weeklyCases,
-                                       listw = dist_weights, 
-                                       randomisation = TRUE, 
-                                       alternative = "less")$p.value
+      moran_list[[date]]  <- moran.test(x = data[data$yw == date, ]$weeklyCases,
+                                        listw = dist_weights, 
+                                        randomisation = TRUE, 
+                                        alternative = "less")$p.value
     } else {
       moran_list[[date]] <- moran.test(x = data[data$yw == date, ]$weeklyCases,
                                        listw = dist_weights, 
                                        randomisation = TRUE, 
                                        alternative = "greater")$p.value
     }
+    
+    # compute confidence interval 
+    m <- moran.test(x = data[data$yw == date, ]$weeklyCases,
+                    listw = dist_weights, 
+                    randomisation = TRUE, 
+                    alternative = "two.sided")
+    m_I <- m$estimate[1]
+    sd_I <- m$estimate[3] %>% sqrt()
+    moran_CI_list[[date]] <- c(m_I - 1.96 * sd_I, 
+                               m_I, 
+                               m_I + 1.96 * sd_I)
   }
   
-  moran_df <- moran_list %>% list.rbind() %>% as.data.frame()
+  moran_df <- moran_list %>% 
+    list.rbind() %>% 
+    as.data.frame()
   colnames(moran_df) <- "p_values"
   moran_df$dates <- as.Date(rownames(moran_df))
   
+  
+  moran_CI <- moran_CI_list %>% 
+    list.rbind() %>% 
+    as.data.frame()
+  colnames(moran_CI) <- c("lower", "M_I", "upper")
+  moran_CI$dates <- as.Date(rownames(moran_CI))
+  
+  
+  g <- ggplot(data = moran_CI, 
+         aes(x = dates,
+             y = lower)) +
+    geom_line() +
+    geom_line(aes(x = dates, 
+                  y = M_I), 
+              color = "red") +
+    geom_line(aes(x = dates, 
+                  y = upper)) +
+    labs(x = "dates", 
+         y = "Moran's I (95% CI)")
+  ggsave(filename = paste0("Figures/MoransI/morans_CI_", 
+                           name,".pdf"), 
+         plot = g, 
+         width = 26, height = 14, unit = "cm")
   return(moran_df)
 }
 
