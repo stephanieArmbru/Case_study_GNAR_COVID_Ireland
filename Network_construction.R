@@ -640,221 +640,6 @@ county_index_complete <- data.frame("CountyName" = complete_net_igraph %>%
                                     "index" = seq(1, 26))
 
 
-# Moran's I ---------------------------------------------------------------
-# spatial autocorrelation measured as Moran's I for each network
-# Queen 
-moran_queen <- moran_I(data = COVID_weekly_data, 
-                       nb_list = nb_list_queen)
-moran_test_queen <- moran_test(data = COVID_weekly_data, 
-                               nb_list = nb_list_queen, 
-                               name = "queen")
-
-
-ggplot(moran_queen, 
-       aes(x = dates, 
-           y = moran)) +
-  geom_line() +
-  xlab("Time") +
-  ylab("Moran's I") +
-  geom_vline(aes(xintercept = as.Date("18.08.2020",
-                                      format = "%d.%m.%Y"), 
-                 color = "County-specific restrictions")) +
-  geom_vline(aes(xintercept = as.Date("26.12.2020", 
-                                      format = "%d.%m.%Y"), 
-                 color = "Level-5 lockdown")) +
-  geom_vline(aes(xintercept = as.Date("10.05.2021",
-                                      format = "%d.%m.%Y"), 
-                 color = "Inter-County travel")) +
-  geom_vline(aes(xintercept = as.Date("06.03.2022",
-                                      format = "%d.%m.%Y"), 
-                 color = "End")) +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_moran_queen.pdf", 
-       width = 27, height = 14, unit = "cm")
-
-
-# Economic hubs 
-moran_eco_hubs <- moran_I(data = COVID_weekly_data, 
-                          nb_list = nb_eco_hubs)
-moran_test_eco_hubs <- moran_test(data = COVID_weekly_data, 
-                                  nb_list = nb_eco_hubs, 
-                                  name = "eco_hubs")
-
-ggplot(moran_eco_hubs, 
-       aes(x = dates, 
-           y = moran)) +
-  geom_line() +
-  xlab("Time") +
-  ylab("Moran's I") +
-  geom_vline(aes(xintercept = as.Date("18.08.2020",
-                                      format = "%d.%m.%Y"), 
-                 color = "County-specific restrictions")) +
-  geom_vline(aes(xintercept = as.Date("26.12.2020", 
-                                      format = "%d.%m.%Y"), 
-                 color = "Level-5 lockdown")) +
-  geom_vline(aes(xintercept = as.Date("10.05.2021",
-                                      format = "%d.%m.%Y"), 
-                 color = "Inter-County travel")) +
-  geom_vline(aes(xintercept = as.Date("06.03.2022",
-                                      format = "%d.%m.%Y"),
-                 color = "End")) +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_moran_eco_hubs.pdf", 
-       width = 27, height = 14, unit = "cm")
-
-# Railway-based
-moran_train <- moran_I(data = COVID_weekly_data, 
-                       nb_list = nb_list_train) 
-moran_test_train <- moran_test(data = COVID_weekly_data, 
-                               nb_list = nb_list_train, 
-                               name = "train")
-
-ggplot(moran_train, 
-       aes(x = dates, 
-           y = moran)) +
-  geom_line() +
-  xlab("Time") +
-  ylab("Moran's I") +
-  geom_vline(aes(xintercept = as.Date("18.08.2020",
-                                      format = "%d.%m.%Y"), 
-                 color = "County-specific restrictions")) +
-  geom_vline(aes(xintercept = as.Date("26.12.2020", 
-                                      format = "%d.%m.%Y"), 
-                 color = "Level-5 lockdown")) +
-  geom_vline(aes(xintercept = as.Date("10.05.2021",
-                                      format = "%d.%m.%Y"), 
-                 color = "Inter-County travel")) +
-  geom_vline(aes(xintercept = as.Date("06.03.2022",
-                                      format = "%d.%m.%Y"),
-                 color = "End")) +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_moran_train.pdf", 
-       width = 27, height = 14, unit = "cm")
-
-# Delaunay 
-moran_delaunay <- moran_I(data = COVID_weekly_data, 
-                          nb_list = nb_list_delaunay)
-moran_test_delaunay <- moran_test(data = COVID_weekly_data, 
-                               nb_list = nb_list_delaunay, 
-                               name = "delaunay")
-
-ggplot(moran_delaunay, 
-       aes(x = dates, 
-           y = moran)) +
-  geom_line() +
-  xlab("Time") +
-  ylab("Moran's I")  +
-  geom_vline(aes(xintercept = as.Date("18.08.2020",
-                                      format = "%d.%m.%Y"), 
-                 color = "County-specific restrictions")) +
-  geom_vline(aes(xintercept = as.Date("26.12.2020", 
-                                      format = "%d.%m.%Y"), 
-                 color = "Level-5 lockdown")) +
-  geom_vline(aes(xintercept = as.Date("10.05.2021",
-                                      format = "%d.%m.%Y"), 
-                 color = "Inter-County travel")) +
-  geom_vline(aes(xintercept = as.Date("06.03.2022",
-                                      format = "%d.%m.%Y"),
-                 color = "End")) +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_moran_delaunay.pdf", 
-       width = 27, height = 14, unit = "cm")
-
-# Gabriel 
-moran_gabriel <- moran_I(data = COVID_weekly_data, 
-                         nb_list = nb_list_gabriel)
-moran_test_gabriel <- moran_test(data = COVID_weekly_data, 
-                               nb_list = nb_list_gabriel, 
-                               name = "gabriel")
-
-ggplot(moran_gabriel, 
-       aes(x = dates, 
-           y = moran)) +
-  geom_line() +
-  xlab("Time") +
-  ylab("Moran's I") +
-  geom_vline(aes(xintercept = as.Date("18.08.2020",
-                                      format = "%d.%m.%Y"), 
-                 color = "County-specific restrictions")) +
-  geom_vline(aes(xintercept = as.Date("26.12.2020", 
-                                      format = "%d.%m.%Y"), 
-                 color = "Level-5 lockdown")) +
-  geom_vline(aes(xintercept = as.Date("10.05.2021",
-                                      format = "%d.%m.%Y"), 
-                 color = "Inter-County travel")) +
-  geom_vline(aes(xintercept = as.Date("06.03.2022",
-                                      format = "%d.%m.%Y"),
-                 color = "End")) +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_moran_gabriel.pdf", 
-       width = 27, height = 14, unit = "cm")
-
-# Relative 
-moran_relative <- moran_I(data = COVID_weekly_data, 
-                          nb_list = nb_list_relative)
-moran_test_relative <- moran_test(data = COVID_weekly_data, 
-                                  nb_list = nb_list_relative, 
-                                  name = "relative")
-
-ggplot(moran_relative, 
-       aes(x = dates, 
-           y = moran)) +
-  geom_line() +
-  xlab("Time") +
-  ylab("Moran's I") +
-  geom_vline(aes(xintercept = as.Date("18.08.2020",
-                                      format = "%d.%m.%Y"), 
-                 color = "County-specific restrictions")) +
-  geom_vline(aes(xintercept = as.Date("26.12.2020", 
-                                      format = "%d.%m.%Y"), 
-                 color = "Level-5 lockdown")) +
-  geom_vline(aes(xintercept = as.Date("10.05.2021",
-                                      format = "%d.%m.%Y"), 
-                 color = "Inter-County travel")) +
-  geom_vline(aes(xintercept = as.Date("06.03.2022",
-                                      format = "%d.%m.%Y"),
-                 color = "End")) +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_moran_relative.pdf", 
-       width = 27, height = 14, unit = "cm")
-
-
-# SOI
-moran_soi <- moran_I(data = COVID_weekly_data, 
-                     nb_list = nb_list_soi)
-moran_test_soi <- moran_test(data = COVID_weekly_data, 
-                               nb_list = nb_list_soi, 
-                               name = "soi")
-ggplot(moran_soi, 
-       aes(x = dates, 
-           y = moran)) +
-  geom_line() +
-  xlab("Time") +
-  ylab("Moran's I") +
-  geom_vline(aes(xintercept = as.Date("18.08.2020",
-                                      format = "%d.%m.%Y"), 
-                 color = "County-specific restrictions")) +
-  geom_vline(aes(xintercept = as.Date("26.12.2020", 
-                                      format = "%d.%m.%Y"), 
-                 color = "Level-5 lockdown")) +
-  geom_vline(aes(xintercept = as.Date("10.05.2021",
-                                      format = "%d.%m.%Y"), 
-                 color = "Inter-County travel")) +
-  geom_vline(aes(xintercept = as.Date("06.03.2022",
-                                      format = "%d.%m.%Y"),
-                 color = "End")) +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_moran_soi.pdf", 
-       width = 27, height = 14, unit = "cm")
-
-
 # KNN - DNN ---------------------------------------------------------------
 opt_knn_net <- knearneigh(x = coord_urbanisation, 
                           k = 21, 
@@ -865,6 +650,10 @@ opt_knn_net <- knearneigh(x = coord_urbanisation,
 opt_knn_net_igraph <- neighborsDataFrame(nb = opt_knn_net) %>% 
   graph_from_data_frame(directed = FALSE) %>% 
   igraph::simplify()
+
+moran_knn <- moran_I_permutation_test(data = COVID_weekly_data, 
+                     g = opt_knn_net_igraph, 
+                     name = "knn")
 
 # create GNAR object 
 opt_knn_net_gnar <- opt_knn_net_igraph %>% 
@@ -906,6 +695,14 @@ opt_dnn_net_igraph <- neighborsDataFrame(opt_dnn_net) %>%
   graph_from_data_frame(directed = FALSE) %>% 
   igraph::simplify() 
 
+opt_knn_net_igraph <- neighborsDataFrame(nb = opt_knn_net) %>% 
+  graph_from_data_frame(directed = FALSE) %>% 
+  igraph::simplify()
+
+moran_dnn <- moran_I_permutation_test(data = COVID_weekly_data, 
+                     g = opt_dnn_net_igraph, 
+                     name = "dnn") 
+
 # create GNAR object 
 opt_dnn_net_gnar <- opt_dnn_net_igraph %>% 
   igraphtoGNAR()
@@ -933,7 +730,64 @@ graph_char_dnn <- network_characteristics(opt_dnn_net_igraph,
 #      labels = rownames(coord_urbanisation),
 #      cex = 0.8, font = 2, pos = 1)
 
+# Moran's I ---------------------------------------------------------------
+# spatial autocorrelation measured as Moran's I for each network
+# Queen 
+g <- covid_net_queen_igraph
+moran_queen <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                        g = covid_net_queen_igraph, 
+                                        name = "queen")
 
+
+# Economic hubs 
+moran_eco_hubs <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                           g = covid_net_eco_hubs_igraph, 
+                                           county_index = county_index_eco_hubs, 
+                                           name = "eco_hubs")
+
+# Railway-based
+moran_train <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                        g = covid_net_train_igraph, 
+                                        county_index = county_index_train, 
+                                        name = "train") 
+
+# Delaunay 
+moran_delaunay <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                           g = covid_net_delaunay_igraph, 
+                                           name = "delaunay")
+
+# Gabriel 
+moran_gabriel <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                          g = covid_net_gabriel_igraph, 
+                                          name = "gabriel")
+
+# Relative 
+moran_relative <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                           g = covid_net_relative_igraph, 
+                                           name = "relative")
+
+# SOI
+moran_soi <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                      g = covid_net_soi_igraph, 
+                                      name = "soi")
+
+# Complete 
+moran_complete <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                           g = complete_net_igraph, 
+                                           name = "complete")
+
+
+# Overview of test statistics
+morans_per_test <- c(moran_train, 
+                     moran_queen, 
+                     moran_eco_hubs, 
+                     moran_knn, 
+                     moran_dnn, 
+                     moran_delaunay, 
+                     moran_gabriel, 
+                     moran_soi, 
+                     moran_relative, 
+                     moran_complete)
 
 # Network characteristics -------------------------------------------------
 # Queen

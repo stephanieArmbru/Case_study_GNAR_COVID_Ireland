@@ -1196,8 +1196,13 @@ ks_2 <- mase_2_knn %>%
 mean_restrictive_counties <- mase_1_queen %>% 
   dplyr::select(CountyName, res, mase) %>% 
   group_by(CountyName) %>% 
-  summarise(res = mean(res), 
-            mase = mean(mase))
+  summarise(mean_res = mean(res) %>% round(digits = 2), 
+            mean_mase = mean(mase) %>% round(digits = 2), 
+            sd_res = sd(res) %>% round(digits = 2),
+            sd_mase = sd(mase) %>% round(digits = 2)) %>% 
+  mutate(res_msd = paste0(mean_res, " (", sd_res, ")"),
+         mase_msd = paste0(mean_mase, " (", sd_mase, ")")) %>% 
+  dplyr::select(CountyName, res_msd, mase_msd)
 
 overview_restrictive_counties <- left_join(mean_restrictive_counties, 
                                            ks_1, 
@@ -1210,8 +1215,13 @@ overview_restrictive_counties[which(overview_restrictive_counties$V1 <= 0.025),
 mean_free_counties <- mase_2_knn %>% 
   dplyr::select(CountyName, res, mase) %>% 
   group_by(CountyName) %>% 
-  summarise(res = mean(res), 
-            mase = mean(mase))
+  summarise(mean_res = mean(res) %>% round(digits = 2), 
+            mean_mase = mean(mase) %>% round(digits = 2), 
+            sd_res = sd(res) %>% round(digits = 2),
+            sd_mase = sd(mase) %>% round(digits = 2)) %>% 
+  mutate(res_msd = paste0(mean_res, " (", sd_res, ")"),
+         mase_msd = paste0(mean_mase, " (", sd_mase, ")")) %>% 
+  dplyr::select(CountyName, res_msd, mase_msd)
 
 overview_free_counties <- left_join(mean_free_counties, 
                                     ks_2, 
@@ -1227,8 +1237,8 @@ overview_counties <- left_join(overview_restrictive_counties,
                                by = "CountyName")
 
 # for latex 
-strCaption <- "Average residual $\\Bar{\\varepsilon}$ and average (av.) MASE value 
-as well as Kolmogorov-Smirnov p-value (p) for each county for restricted and unrestricted 
+strCaption <- "Average residual $\\Bar{\\varepsilon}$ and average (av.) MASE value
+with standard deviation in brackets (.), as well as Kolmogorov-Smirnov p-value (p) for each county for restricted and unrestricted 
 pandemic phase"
 print(xtable(overview_counties,
              digits=2,
@@ -1261,51 +1271,36 @@ AC_free <- autocorrelation(res = residuals_free)
 
 # Spatial correlation -----------------------------------------------------
 # Moran's I on residuals 
-load("Data/RObjects/nb_list.RData")
+data_1_long <- data_1 %>% 
+  gather("CountyName", "cases", -time)
 
-SC_restrictive <- moran_test_residuals(data = residuals_restrictive %>% na.omit(), 
-                                       nb_list = nb_list_queen)
+SC_orig_restrictive <- moran_I_permutation_test(data = data_1_long %>% na.omit(), 
+                         g = covid_net_queen_igraph, 
+                         name = "queen_restricted", 
+                         time_col = "time", 
+                         cases_col = "cases")
 
-SC_free <- moran_test_residuals(data = residuals_free %>% na.omit(), 
-                                       nb_list = opt_knn_net)
-
-
-
-
-
-# Visualization 
-ggplot(SC_restrictive, 
-       aes(x = dates, 
-           y = p_values)) +
-  geom_line() +
-  geom_hline(aes(yintercept = 0.05), 
-             color = "grey", 
-             linetype = "dashed") +
-  xlab("Time") +
-  ylab("p-value for Moran's test") +
-  labs(title = "Restricted phase") +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_morans_test_restrictive.pdf", 
-       width = 27, height = 14, unit = "cm")
+SC_restrictive <- moran_I_permutation_test(data = residuals_restrictive %>% na.omit(),  
+                         g = covid_net_queen_igraph, 
+                         name = "queen_residuals", 
+                         time_col = "time", 
+                         cases_col = "residuals")
 
 
-ggplot(SC_free, 
-       aes(x = dates, 
-           y = p_values)) +
-  geom_line() +
-  geom_hline(aes(yintercept = 0.05), 
-             color = "grey", 
-             linetype = "dashed") +
-  xlab("Time") +
-  ylab("p-value for Moran's test") +
-  labs(title = "Unrestricted phase") +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_morans_test_free.pdf", 
-       width = 27, height = 14, unit = "cm")
+data_2_long <- data_2 %>% 
+  gather("CountyName", "cases", -time)
 
+SC_orig_restrictive <- moran_I_permutation_test(data = data_2_long %>% na.omit(), 
+                                                g = knn_21_igraph, 
+                                                name = "knn_free", 
+                                                time_col = "time", 
+                                                cases_col = "cases")
 
+SC_free <- moran_I_permutation_test(data = residuals_free %>% na.omit(), 
+                                    g = knn_21_igraph, 
+                                    name = "knn_residuals", 
+                                    time_col = "time", 
+                                    cases_col = "residuals")
 
 # Change in coefficients --------------------------------------------------
 best_for_subset_all

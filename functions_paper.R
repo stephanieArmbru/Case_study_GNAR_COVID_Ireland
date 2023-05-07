@@ -7,6 +7,7 @@ library(Hmisc) # for weighted variance
 library(Metrics) # for MASE computation 
 library(rlist) # for easy concatenation of lists
 library(igraph)
+library(ape)
 
 # source adapted functions from GNAR package 
 source("GNAR/GNARdesign.R")
@@ -24,64 +25,52 @@ colMin <- function(data) {
   return(sapply(data, min, na.rm = TRUE))
 }
 
-
-# Residual variance for GNAR models ---------------------------------------
-# compute average variance of residuals (for white noise error term)
-compute_variance <- function(GNARmodel) {
-  res <- GNARmodel$mod$residuals %>% 
-    var()
+# Economic hub network ----------------------------------------------------
+# create economic hub network based on Queen's contiguity network and edges to
+# nearest economic hub 
+create_eco_hub_igraph <- function(dist_df, # pairwise distance between vertices in data frame
+                                  coord) { # matrix of vertex  coordinates
+  queen_adj <- covid_net_queen_igraph %>% 
+    as_adjacency_matrix()
   
-  return(res)
-}
-
-# compute average variance of residuals for each data subset (for white noise error term)
-compute_variance_subsets <- function(GNARmodel_list) {
-  
-  res_vector <- c()
-  
-  for (i in seq(1, 5)) {
-    res <- GNARmodel_list[[i]]$mod$residuals %>% 
-      var()
+  for (county in queen_adj %>% rownames()) {
+    # select nearest economic hub for county in question 
+    nearest_hub <- dist_df[county, hubs] %>% which.min() %>% names()
     
-    res_vector <- c(res_vector, res)
+    queen_adj[county, nearest_hub] <- 1
+    queen_adj[nearest_hub, county] <- 1
   }
-  return(res_vector)
+  
+  index_list <- data.frame("county" = queen_adj %>% rownames(), 
+                           "index" = seq(1, 26))
+  
+  # assign numbers for row names and column names  
+  rownames(queen_adj) <- seq(1, 26)
+  colnames(queen_adj) <- seq(1, 26)
+  
+  # create igraph object from adjacency matrix
+  covid_net_eco_hubs_igraph <- graph_from_adjacency_matrix(adjmatrix = queen_adj, 
+                                                           mode = "undirected") 
+  
+  # order coordinates in the same order as adjacency matrix
+  coord_ord <- coord[match(index_list$county, 
+                           rownames(coord)), ] %>% 
+    as.data.frame()
+  coord_hubs <- coord_ord %>% filter(rownames(coord_ord) %in% hubs)
+  
+  return(list("igraph_net" = covid_net_eco_hubs_igraph, 
+              "ordered_coord" = coord_ord, 
+              "ordered_hubs" = coord_hubs))
 }
 
 
-# Maps COVID --------------------------------------------------------------
-# plot county map of Ireland, coloured indicating the COVID-19 incidence
-map_covid <- function(desired_date # form "2020-03-01", has to be Monday
-) {
-  # filter data for desired date
-  COVID_week<- COVID_weekly_data %>% 
-    filter(yw == desired_date) %>% 
-    dplyr::select(weeklyCases, CountyName) 
-  
-  ireland$COVID <- COVID_week[match(ireland$NAME_1, 
-                                    COVID_week$CountyName), ] %>% 
-    pull(weeklyCases)
-  
-  # define colour palette 
-  pal <- colorNumeric(palette ="YlGnBu", 
-                      domain = ireland$COVID)
-  
-  # generate plot 
-  map <- leaflet(ireland) %>%  
-    addPolygons(color = "#444444", weight = 1, smoothFactor = 0.5,
-                opacity = 1.0, fillOpacity = 0.5,
-                fillColor = ~pal(COVID),
-                highlightOptions = highlightOptions(color = "white", weight =2,
-                                                    bringToFront = TRUE),
-                label = ~NAME_1) %>% 
-    addLegend("bottomright", 
-              pal = pal, 
-              values = ~COVID,
-              title = paste0("COVID cases on ", desired_date),
-              opacity = 1
-    )
-  
-  return(map)
+# igraph ------------------------------------------------------------------
+# generate nb list from igraph object
+# requires numeric vertices (i.e. no county names for vertex names)
+igraph2nb <- function(gr) {
+  edges <- get.edgelist(gr)
+  mode(edges) <- "integer"
+  return(neig(edges = edges) %>% neig2nb())
 }
 
 # Network characteristics -------------------------------------------------
@@ -97,9 +86,9 @@ network_characteristics <- function(igraph_obj,
     transitivity(type = "local",
                  isolates = "zero") %>% 
     mean()
-
   
-  degree_v <- igraph_obj %>% degree()
+  
+  degree_v <- igraph_obj %>% igraph::degree()
   av_degree <- degree_v %>% mean() 
   
   # model Bernoulli Random Graph to check for small world behaviour 
@@ -173,18 +162,18 @@ is_scale_free <- function(igraph_net, # igraph object required
   
   if (Newman) {
     df <- data.frame("X" = igraph_net %>% 
-                            degree() %>% 
-                            unique() %>% 
-                            log())
+                       degree() %>% 
+                       unique() %>% 
+                       log())
     
     ecdf_fun <- igraph_net %>% 
       degree() %>% 
       ecdf()
     
     df$Y <- igraph_net %>% 
-               degree() %>% 
-               unique() %>% 
-               ecdf_fun() %>% log()
+      degree() %>% 
+      unique() %>% 
+      ecdf_fun() %>% log()
     
     name_y <- "log. emp. cum. distribution"
   }
@@ -213,189 +202,128 @@ is_scale_free <- function(igraph_net, # igraph object required
               "R_squared" = s$r.squared))
 }
 
-
-# Correlation and Performance ---------------------------------------------
+# Autocorrelation ---------------------------------------------------------
 # compute Residual Sum of Squares
 RSS <- function(GNARfit_object) {
   return(sum(residuals(GNARfit_object)^2))
 }
 
-# compute Moran's I
-moran_I <- function(data = COVID_weekly_data,
-                    coords = coord_urbanisation, 
-                    nb_list, 
-                    inverse_distance = TRUE) {
-  moran_list <- list()
+# Moran's I permutation test 
+moran_I_permutation_test <- function(data = COVID_weekly_data,
+                                     g, 
+                                     county_index = NULL, 
+                                     name, 
+                                     time_col = yw, 
+                                     cases_col = weeklyCases) {
   
-  # compute Great Circle distances 
-  geoms <- st_as_sf(coords %>% as.data.frame(), 
-                    coords = c("X", "Y"), 
-                    remove = FALSE)
+  # compute shortest path length for each vertex pair
+  distMatrix <- exp(shortest.paths(g, v=V(g), to=V(g)) * (-1))
   
-  if (inverse_distance) {
-    dist_weights <- nb2listwdist(nb_list, 
-                                 as(geoms,
-                                    "Spatial"), 
-                                 type = "idw", 
-                                 alpha = 1, # inverse distance
-                                 style = "C",
-                                 longlat = TRUE)
+  # if igraph does not have county names for vertices 
+  if (!is.null(county_index)) {
+    # assign names 
+    county_ordering <- match(seq(1, 26), 
+                             county_index$index)
+    county_names <- county_index[county_ordering, ]$CountyName
+    
+    rownames(distMatrix) <- county_names
+    colnames(distMatrix) <- county_names
   }
-  if (!inverse_distance) {
-    dist_weights <- nb2listw(nb_list, 
-                             style = "C")
-  }
+  # assign county names
+  county_distMatrix <- distMatrix %>% rownames()
   
-  # for each date, compute Moran's I
-  for (date in data$yw %>% unique() %>% as.character()) {
-    moran_list[[date]] <- moran(data[data$yw == date, ]$weeklyCases,
-                                listw = dist_weights, # row-wise normalisation
-                                n = length(nb_list), 
-                                Szero(dist_weights) # global sum of weights
-                                )$I
-  }
   
-  moran_df <- do.call(rbind.data.frame, moran_list)
-  colnames(moran_df) <- "moran"
-  moran_df$dates <- as.Date(names(moran_list))
-  
-  return(moran_df)
-}
-
-# compute Moran's test for each county 
-moran_test <- function(data = COVID_weekly_data,
-                       coords = coord_urbanisation, 
-                       nb_list, 
-                       name) {
-  moran_list <- list()
-  moran_CI_list <- list()
-  
-  # compute Great Circle distances 
-  geoms <- st_as_sf(coords %>% as.data.frame(), 
-                    coords = c("X", "Y"), 
-                    remove = FALSE)
-  
-  dist_weights <- nb2listwdist(nb_list, 
-                               as(geoms,
-                                  "Spatial"), 
-                               type = "idw", 
-                               alpha = 1, # inverse distance
-                               style = "C",
-                               longlat = TRUE)
-  
-  # for each date, compute Moran's test statistic and extract p-value
-  dates <- data$yw %>% 
+  # loop through all dates
+  dates <- data[[time_col]] %>% 
     unique() %>% 
     as.character()
   
-  restrictive_dates <- c(seq(from = as.Date("01.03.2020", 
-                                            format = "%d.%m.%Y"), 
-                             to = as.Date("18.08.2020", 
-                                          format = "%d.%m.%Y"), 
-                             by = 7), 
-                         seq(from = as.Date("26.12.2020", 
-                                            format = "%d.%m.%Y"), 
-                             to = as.Date("10.05.2021", 
-                                          format = "%d.%m.%Y"), 
-                             by = 7)
-  )
-  
+  moran_list <- list()
+  # for each date, compute Moran's I
   for (date in dates[-1]) {
-    if (date %in% restrictive_dates) {
-      moran_list[[date]]  <- moran.test(x = data[data$yw == date, ]$weeklyCases,
-                                        listw = dist_weights, 
-                                        randomisation = TRUE, 
-                                        alternative = "less")$p.value
-    } else {
-      moran_list[[date]] <- moran.test(x = data[data$yw == date, ]$weeklyCases,
-                                       listw = dist_weights, 
-                                       randomisation = TRUE, 
-                                       alternative = "greater")$p.value
+    cases_date <- data[data[[time_col]] == date, ]
+    county_df <- cases_date$CountyName
+    ordering <- match(county_distMatrix, county_df)
+    
+    number_cases_date <- cases_date[ordering, ][[cases_col]]
+    
+    morans_I_values <- array(NA, dim = 100)
+    for (r in seq(1, 100)) {
+      set.seed(r)
+      # permutate case numbers 
+      permutate <- sample(seq(1, 26), 
+                          size = 26, 
+                          replace = FALSE) 
+      
+      # compute Moran's I for permutated cases 
+      morans_I_values[r] <- ape::Moran.I(number_cases_date[permutate], 
+                                         distMatrix, 
+                                         scaled = FALSE, 
+                                         na.rm = FALSE,
+                                         alternative = "two.sided")$observed
     }
     
-    # compute confidence interval 
-    m <- moran.test(x = data[data$yw == date, ]$weeklyCases,
-                    listw = dist_weights, 
-                    randomisation = TRUE, 
-                    alternative = "two.sided")
-    m_I <- m$estimate[1]
-    sd_I <- m$estimate[3] %>% sqrt()
-    moran_CI_list[[date]] <- c(m_I - 1.96 * sd_I, 
-                               m_I, 
-                               m_I + 1.96 * sd_I)
+    quantile_morans_I <- quantile(morans_I_values, 
+                                  probs = c(0.025, 0.5, 0.975)) %>% 
+      unname()
+    
+    orig_result <- ape::Moran.I(number_cases_date, 
+                                distMatrix, 
+                                scaled = FALSE, 
+                                na.rm = FALSE,
+                                alternative = "two.sided") %>% 
+      list.cbind()
+    
+    moran_list[[date]] <- cbind(orig_result, 
+                                "lower_ci" = quantile_morans_I[1], 
+                                "upper_ci" = quantile_morans_I[3], 
+                                "median" = quantile_morans_I[2])
   }
   
-  moran_df <- moran_list %>% 
-    list.rbind() %>% 
-    as.data.frame()
-  colnames(moran_df) <- "p_values"
-  moran_df$dates <- as.Date(rownames(moran_df))
   
+  moran_df <- moran_list %>% list.rbind() %>% as.data.frame()
+  moran_df$dates <- dates[-1] %>% as.Date()
   
-  moran_CI <- moran_CI_list %>% 
-    list.rbind() %>% 
-    as.data.frame()
-  colnames(moran_CI) <- c("lower", "M_I", "upper")
-  moran_CI$dates <- as.Date(rownames(moran_CI))
+  # p-value 
+  morans_p <- moran_df %>% 
+    mutate(p = ifelse(observed > upper_ci | observed < lower_ci, 1, 0)) %>% 
+    pull(p) %>% 
+    sum()
   
-  
-  g <- ggplot(data = moran_CI, 
-         aes(x = dates,
-             y = lower)) +
+  # Visualize and save plot 
+  ggplot(moran_df, 
+         aes(x = dates, 
+             y = observed)) +
     geom_line() +
+    xlab("Time") +
+    ylab("Moran's I") +
+    geom_vline(aes(xintercept = as.Date("18.08.2020",
+                                        format = "%d.%m.%Y"), 
+                   color = "County-specific restrictions")) +
+    geom_vline(aes(xintercept = as.Date("26.12.2020", 
+                                        format = "%d.%m.%Y"), 
+                   color = "Level-5 lockdown")) +
+    geom_vline(aes(xintercept = as.Date("10.05.2021",
+                                        format = "%d.%m.%Y"), 
+                   color = "Inter-County travel")) +
+    geom_vline(aes(xintercept = as.Date("06.03.2022",
+                                        format = "%d.%m.%Y"), 
+                   color = "End")) +
     geom_line(aes(x = dates, 
-                  y = M_I), 
-              color = "red") +
+                  y = lower_ci), 
+              linetype = "dashed", color = "grey") +
     geom_line(aes(x = dates, 
-                  y = upper)) +
-    labs(x = "dates", 
-         y = "Moran's I (95% CI)")
-  ggsave(filename = paste0("Figures/MoransI/morans_CI_", 
-                           name,".pdf"), 
-         plot = g, 
-         width = 26, height = 14, unit = "cm")
-  return(moran_df)
-}
-
-## compute Moran's test for residuals for each county 
-moran_test_residuals <- function(data,
-                                 coords = coord_urbanisation, 
-                                 nb_list) {
-  moran_list <- list()
+                  y = upper_ci), 
+              linetype = "dashed", color = "grey") +
+    geom_line(aes(x = dates, 
+                  y = median), 
+              linetype = "dashed", color = "grey") +
+    scale_color_brewer(palette = "Set1") + 
+    theme(legend.position = "None")
+  ggsave(paste0("Figures/MoransI/covid_moran_", name, ".pdf", collapse = ""), 
+         width = 27, height = 14, unit = "cm")
   
-  # compute Great Circle distances 
-  geoms <- st_as_sf(coords %>% as.data.frame(), 
-                    coords = c("X", "Y"), 
-                    remove = FALSE)
-  
-  dist_weights <- nb2listwdist(nb_list, 
-                               as(geoms,
-                                  "Spatial"), 
-                               type = "idw", 
-                               alpha = 1, # inverse distance
-                               style = "C",
-                               longlat = TRUE)
-  
-  # for each date, compute Moran's test statistic and extract p-value
-  dates <- data$time %>% 
-    unique() %>% 
-    as.character()
-  
-  
-  for (date in dates[-1]) {
-    moran_list[[date]] <- moran.test(x = data[data$time == date, ]$residuals,
-                                     listw = dist_weights, 
-                                     randomisation = TRUE, 
-                                     alternative = "two.sided")$p.value
-  }
-  
-  moran_df <- moran_list %>% 
-    list.rbind() %>% 
-    as.data.frame()
-  colnames(moran_df) <- "p_values"
-  moran_df$dates <- as.Date(rownames(moran_df))
-  
-  return(moran_df)
+  return(morans_p)
 }
 
 
@@ -517,56 +445,6 @@ fit_and_predict_arima <- function(counties = c("Dublin",
 }
 
 
-# Economic hub network ----------------------------------------------------
-# create economic hub network based on Queen's contiguity network and edges to
-# nearest economic hub 
-create_eco_hub_igraph <- function(dist_df, # pairwise distance between vertices in data frame
-                                  coord) { # matrix of vertex  coordinates
-  queen_adj <- covid_net_queen_igraph %>% 
-    as_adjacency_matrix()
-  
-  for (county in queen_adj %>% rownames()) {
-    # select nearest economic hub for county in question 
-    nearest_hub <- dist_df[county, hubs] %>% which.min() %>% names()
-    
-    queen_adj[county, nearest_hub] <- 1
-    queen_adj[nearest_hub, county] <- 1
-  }
-  
-  index_list <- data.frame("county" = queen_adj %>% rownames(), 
-                           "index" = seq(1, 26))
-  
-  # assign numbers for row names and column names  
-  rownames(queen_adj) <- seq(1, 26)
-  colnames(queen_adj) <- seq(1, 26)
-  
-  # create igraph object from adjacency matrix
-  covid_net_eco_hubs_igraph <- graph_from_adjacency_matrix(adjmatrix = queen_adj, 
-                                                           mode = "undirected") 
-  
-  # order coordinates in the same order as adjacency matrix
-  coord_ord <- coord[match(index_list$county, 
-                           rownames(coord)), ] %>% 
-    as.data.frame()
-  coord_hubs <- coord_ord %>% filter(rownames(coord_ord) %in% hubs)
-  
-  return(list("igraph_net" = covid_net_eco_hubs_igraph, 
-              "ordered_coord" = coord_ord, 
-              "ordered_hubs" = coord_hubs))
-}
-
-
-# igraph ------------------------------------------------------------------
-# generate nb list from igraph object
-# requires numeric vertices (i.e. no county names for vertex names)
-igraph2nb <- function(gr) {
-  edges <- get.edgelist(gr)
-  mode(edges) <- "integer"
-  return(neig(edges = edges) %>% neig2nb())
-}
-
-
-
 # GNAR models --------------------------------------------------------------
 # fit GNAR model with alpha and beta order according to input arguments  
 fit_and_predict <- function(alpha, beta, 
@@ -597,7 +475,7 @@ fit_and_predict <- function(alpha, beta,
                             
                             return_model = FALSE, 
                             forecast_window = 10
-                            ) {
+) {
   
   train_window <- dim(vts)[1] - forecast_window
   
@@ -618,11 +496,11 @@ fit_and_predict <- function(alpha, beta,
     } 
     if (old) {
       model <- GNARfit(vts = vts[1:train_window, ], 
-                    net = net,
-                    alphaOrder = alpha, 
-                    betaOrder = beta, 
-                    globalalpha = globalalpha
-                    )
+                       net = net,
+                       alphaOrder = alpha, 
+                       betaOrder = beta, 
+                       globalalpha = globalalpha
+      )
     }
     
   } else {
@@ -690,7 +568,7 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 5),
                                                          c(2, 1, 1, 1, 1), 
                                                          c(2, 2, 1, 1, 1), 
                                                          c(2, 2, 2, 1, 1)
-                                                         ), # in form of list
+                                     ), # in form of list
                                      globalalpha = c("TRUE", "FALSE"), 
                                      net, vts = covid_cases,  
                                      numeric_vertices = FALSE, 
@@ -734,7 +612,7 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 5),
   # constructed 
   if (any(net %>% 
           GNARtoigraph() %>% 
-          degree() == net$edges %>% 
+          igraph::degree() == net$edges %>% 
           length() - 1)) {
     only_1 <- model_options_valid %>% 
       pull(Var2) %>% 
@@ -824,10 +702,8 @@ return_best_knn_dnn <- function(df) {
                 res_pop_class, 
                 res_old, 
                 res_old_class
-                ) %>% data.frame())
+  ) %>% data.frame())
 }
-
-
 
 # Residual analysis -------------------------------------------------------
 # compute and plot residuals for GNAR model 
@@ -1266,7 +1142,7 @@ parameter_development_phases <- function(data_list = datasets_list_coarse,
                        ".pdf", 
                        collapse = ""), 
          plot = g_alpha, 
-         width = 26, height = 14, unit = "cm")
+         width = 18, height = 15, unit = "cm")
   
   
   g_beta <- ggplot(param_df  %>% 
@@ -1295,7 +1171,7 @@ parameter_development_phases <- function(data_list = datasets_list_coarse,
                        ".pdf", 
                        collapse = ""), 
          plot = g_beta, 
-         width = 26, height = 14, unit = "cm")
+         width = 18, height = 15, unit = "cm")
   
   return(list("alpha" = g_alpha, 
               "beta" = g_beta, 
@@ -1791,7 +1667,7 @@ plot_mase_I <- function(mase_overview,
                            ".pdf", 
                            collapse = ""), 
          plot = g,
-         width = 26, height = 13, units = "cm")
+         width = 30, height = 13, units = "cm")
   
   return(g)
 }
@@ -1928,3 +1804,5 @@ plot_predicted_vs_fitted_II <- function(mase_overview,
                                                 "Eco hub"), 
                              lag = lag)
 }
+
+
