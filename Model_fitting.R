@@ -1303,8 +1303,6 @@ SC_free <- moran_I_permutation_test(data = residuals_free %>% na.omit(),
                                     cases_col = "residuals")
 
 # Change in coefficients --------------------------------------------------
-best_for_subset_all
-
 parameter_development_phases(net_list = list(covid_net_queen_gnar, 
                                              knn_21_gnar), 
                              alpha_vector = c(5, 5),
