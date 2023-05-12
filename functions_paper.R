@@ -213,8 +213,8 @@ moran_I_permutation_test <- function(data = COVID_weekly_data,
                                      g, 
                                      county_index = NULL, 
                                      name, 
-                                     time_col = yw, 
-                                     cases_col = weeklyCases) {
+                                     time_col = "yw", 
+                                     cases_col = "weeklyCases") {
   
   # compute shortest path length for each vertex pair
   distMatrix <- exp(shortest.paths(g, v=V(g), to=V(g)) * (-1))
@@ -297,6 +297,9 @@ moran_I_permutation_test <- function(data = COVID_weekly_data,
     geom_line() +
     xlab("Time") +
     ylab("Moran's I") +
+    geom_vline(aes(xintercept = as.Date("27.02.2020",
+                                        format = "%d.%m.%Y"), 
+                   color = "Initial lockdown")) +
     geom_vline(aes(xintercept = as.Date("18.08.2020",
                                         format = "%d.%m.%Y"), 
                    color = "County-specific restrictions")) +
