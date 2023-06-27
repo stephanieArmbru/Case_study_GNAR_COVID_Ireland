@@ -1,14 +1,5 @@
 ### FUNCTIONS
 
-
-# Load libraries ----------------------------------------------------------
-library(ade4) # igraph to neighbourhood list object
-library(Hmisc) # for weighted variance 
-library(Metrics) # for MASE computation 
-library(rlist) # for easy concatenation of lists
-library(igraph)
-library(ape)
-
 # source adapted functions from GNAR package 
 source("GNAR/GNARdesign.R")
 source("GNAR/GNARfit.R")
@@ -202,7 +193,8 @@ is_scale_free <- function(igraph_net, # igraph object required
               "R_squared" = s$r.squared))
 }
 
-# Autocorrelation ---------------------------------------------------------
+
+# Correlation -------------------------------------------------------------
 # compute Residual Sum of Squares
 RSS <- function(GNARfit_object) {
   return(sum(residuals(GNARfit_object)^2))
@@ -288,7 +280,7 @@ moran_I_permutation_test <- function(data = COVID_weekly_data,
   morans_p <- moran_df %>% 
     mutate(p = ifelse(observed > upper_ci | observed < lower_ci, 1, 0)) %>% 
     pull(p) %>% 
-    sum()
+    mean()
   
   # Visualize and save plot 
   ggplot(moran_df, 
@@ -1807,5 +1799,188 @@ plot_predicted_vs_fitted_II <- function(mase_overview,
                                                 "Eco hub"), 
                              lag = lag)
 }
+
+
+# Simulation data  --------------------------------------------------------
+# generate simulated data
+simulate_time_series <- function(gnar_object, 
+                                 model_coef, # model coefficients
+                                 alpha_order,
+                                 beta_order, # beta order
+                                 initial_mean = 10, 
+                                 var_noise, # variance for error term
+                                 county_index, 
+                                 counties = counties_v, 
+                                 timeframe = 120) {
+  # determine max stage across lags 
+  max_stage <- beta_order %>% max()
+  
+  # generate white noise 1-lag COVID-19 ID values for first n days
+  initial_array <- rnorm(n = alpha_order  * 26, 
+                      mean = initial_mean, 
+                      sd = sqrt(var_noise)) %>%
+    array(dim = c(alpha_order, 26))
+  
+  # initialize data frame to store simulated data
+  simulated_array <- array(0, dim = c(timeframe, 26))
+  simulated_array[1:alpha_order, ] <- initial_array
+  
+  
+  # assign counties to columns  
+  colnames(simulated_array) <- counties
+  
+  # current time 
+  current_end <- initial_array %>% nrow()
+  
+  # predict for weeks according to time frame
+  while (current_end < timeframe) {
+    simulated_values <- array(0, dim = 26)
+    
+    for (county in counties) {
+      df_index <- which(colnames(simulated_array) == county)
+      
+      # create data frame consisting of the relevant county as column
+      initial_df_county <- simulated_array[, county]
+      
+      # numeric index for vertex according to county index
+      county_to_vertex <- county_index[county_index$CountyName == county, ]$index
+      
+      
+      # separate alpha and beta coefficients 
+      alpha_coef <- model_coef  %>% 
+        filter(grepl("alpha", type))
+      
+      beta_coef <- model_coef  %>% 
+        filter(grepl("beta", type))
+      
+      # compute shortest path length between county and all remaining counties
+      spl_county <- distances(graph = gnar_object %>% 
+                                GNARtoigraph(), 
+                              v = county_to_vertex) %>% 
+        t() %>% 
+        as.data.frame()
+      colnames(spl_county) <- "spl"
+      spl_county$index <- seq(1, 26)
+      
+      # add shortest path length to county index data frame 
+      spl_county_names <- left_join(county_index, 
+                                    spl_county, 
+                                    by = "index")
+      
+      # create vector for beta terms to be saved in 
+      beta_part <- array(0, dim = c(alpha_order, max_stage))
+      
+      for (lagged in seq(1, alpha_order)) {
+        # determine neighborhood stage for certain lag
+        beta_order_component <- beta_order[lagged]
+        
+        # determine beta coefficients for certain lag 
+        beta_coef_lagged <- beta_coef %>%
+          filter(grepl(paste0("beta", lagged), type))
+        
+        # for every stage, identify neighbors and compute term based on beta coefficients and lagged values 
+        if (beta_order_component != 0) {
+          for (stage in seq(1, beta_order_component)) {
+            # identify vertices in certain neighbourhood stage 
+            stage_neighbourhood <- spl_county_names %>% 
+              filter(spl == stage) %>% 
+              pull(CountyName)
+            
+            # compute SPL weights as the inverse of numbers of vertices
+            # in neighbourhood
+            neighbour_weight <- 1 / (stage_neighbourhood %>% 
+                                       length())
+            
+            # filter data for neighbours 
+            initial_df_neighbours <- simulated_array[, stage_neighbourhood]
+            
+            # compute beta term for certain time lag 
+            beta_part[lagged, stage] <- beta_coef_lagged$param[stage] * neighbour_weight * sum(initial_df_neighbours[current_end + 1 - lagged])
+            
+          }
+        } 
+      }
+      
+      # compute alpha term as sum of all time lags 
+      alpha_term <- sum(alpha_coef$param * initial_df_county[(current_end + 1 - alpha_order) : current_end])
+      
+      # compute over beta term as sum of all time lags 
+      beta_term <- beta_part %>% sum()
+      
+      # compute simulated value plus random error
+      simulated_values[df_index] <- alpha_term + beta_term + rnorm(n = 1, 
+                                                        mean = 0, 
+                                                        sd = sqrt(var_noise))
+      
+    }
+    # add new row with simulated data points for each county  
+    simulated_array[current_end + 1, ] <- simulated_values
+    
+    
+    # compute current time end point 
+    current_end <- current_end + 1
+  }
+  
+  # assign fictional "time" 
+  simulated_df <- simulated_array %>% 
+    as.data.frame() %>% 
+    mutate(time = seq(1, timeframe))
+  
+  # transform into long data table 
+  simulated_df_long <- simulated_df %>% 
+    gather("CountyName", 
+           "ID", 
+           -time)
+  
+  return(simulated_df_long)
+}
+
+
+# re-compute GNAR model coefficients for simulated data 
+reconstruct_coefficients <- function(model_coef,
+                                     simulation_df, 
+                                     alphaOrder, 
+                                     betaOrder, 
+                                     gnar_object) {
+
+  simulation_short <- simulation_df %>% 
+    spread(CountyName, ID) %>% 
+    dplyr::select(-time) %>% 
+    as.matrix()
+  
+  gnar_model <- GNARfit(vts = simulation_short, 
+                        net = gnar_object, 
+                        alphaOrder = alphaOrder, 
+                        betaOrder = betaOrder, 
+                        globalalpha = TRUE)
+  
+  # extract estimated model coefficients 
+  fitted_coef_df <- gnar_model %>% 
+    coef() %>% 
+    as.data.frame()
+  colnames(fitted_coef_df) <- "recomp_param"
+  
+  fitted_coef_df <- fitted_coef_df %>% 
+    mutate(type = rownames(fitted_coef_df))
+  
+  # join true and estimated coefficients 
+  compare_coef <- left_join(fitted_coef_df, 
+                            model_coef, 
+                            by = "type")
+    
+  
+  # compute 95% confidence interval 
+  ci_coef <- gnar_model$mod %>% confint() 
+  
+  # add confidence interval to coefficient estimate 
+  compare_coef$recomp_param_ci <- paste0(compare_coef$recomp_param %>% round(2), 
+                                    " [", 
+                                    ci_coef[, 1] %>% round(2),
+                                    ", ",
+                                    ci_coef[, 2] %>% round(2),
+                                    "]")
+  return(compare_coef[, c(2, 3, 4)])
+}
+
 
 

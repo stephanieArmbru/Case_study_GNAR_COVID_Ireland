@@ -18,7 +18,10 @@ library(spdep) # for neighbourhood construction
 library(expp)
 library(rlist)
 library(forecast)
-
+library(ade4) # igraph to neighbourhood list object
+library(Hmisc) # for weighted variance 
+library(Metrics) # for MASE computation 
+library(ape)
 
 # load vectors and GNAR objects 
 load(file = "Data/RObjects/GNAR.RData")

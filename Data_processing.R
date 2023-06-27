@@ -12,7 +12,12 @@ library(tidyverse)
 library(ISOweek)
 library(MASS)
 library(xtable) # for tables
-
+library(ade4) # igraph to neighbourhood list object
+library(Hmisc) # for weighted variance 
+library(Metrics) # for MASE computation 
+library(rlist) # for easy concatenation of lists
+library(ape)
+library(igraph)
 library(lubridate) # for dates
 library(zoo)
 

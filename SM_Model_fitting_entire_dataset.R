@@ -15,6 +15,11 @@ library(tidyverse)
 library(magrittr) # for pipping 
 library(xtable) # for tables 
 library(geosphere) # for long / lat distance calculation
+library(ade4) # igraph to neighbourhood list object
+library(Hmisc) # for weighted variance 
+library(Metrics) # for MASE computation 
+library(rlist) # for easy concatenation of lists
+library(ape)
 
 # for MAPS: 
 library(sp)

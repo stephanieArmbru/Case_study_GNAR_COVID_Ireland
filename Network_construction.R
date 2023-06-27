@@ -6,6 +6,11 @@ rm(list=ls())
 set.seed(1234)
 
 # Load libraries ----------------------------------------------------------
+library(ade4) # igraph to neighbourhood list object
+library(Hmisc) # for weighted variance 
+library(Metrics) # for MASE computation 
+library(rlist) # for easy concatenation of lists
+library(ape)
 library(readr)
 library(igraph)
 library(GNAR)
@@ -55,8 +60,23 @@ options(warn = -1)
 theme_set(theme_bw(base_size = 16))
 
 # Load pre-processed data -------------------------------------------------
+# weekly data
 COVID_weekly_data <- read_csv(file = "Data/ireland_covid_weekly.csv", 
                               show_col_types = FALSE)
+# data for pandemic phases
+load(file = "Data/RObjects/data_subsets_pandemic_situations.RData")
+
+COVID_restricted <- datasets_list_coarse$restrictive %>% 
+  as.data.frame() %>% 
+  mutate(yw = rownames(datasets_list_coarse$restrictive)) %>% 
+  gather("CountyName", "weeklyCases", -c(yw)) %>% 
+  na.omit()
+
+COVID_unrestricted <- datasets_list_coarse$free %>% 
+  as.data.frame() %>% 
+  mutate(yw = rownames(datasets_list_coarse$free)) %>% 
+  gather("CountyName", "weeklyCases", -c(yw)) %>% 
+  na.omit()
 
 # correct format for GNAR models
 covid_cases <-  COVID_weekly_data %>% 
@@ -654,6 +674,13 @@ opt_knn_net_igraph <- neighborsDataFrame(nb = opt_knn_net) %>%
 moran_knn <- moran_I_permutation_test(data = COVID_weekly_data, 
                      g = opt_knn_net_igraph, 
                      name = "knn")
+moran_knn_restricted <- moran_I_permutation_test(data = COVID_restricted, 
+                                                 g = opt_knn_net_igraph, 
+                                                 name = "knn_restricted")
+moran_knn_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
+                                                   g = opt_knn_net_igraph, 
+                                                   name = "knn_unrestricted")
+
 
 # create GNAR object 
 opt_knn_net_gnar <- opt_knn_net_igraph %>% 
@@ -702,6 +729,12 @@ opt_knn_net_igraph <- neighborsDataFrame(nb = opt_knn_net) %>%
 moran_dnn <- moran_I_permutation_test(data = COVID_weekly_data, 
                      g = opt_dnn_net_igraph, 
                      name = "dnn") 
+moran_dnn_restricted <- moran_I_permutation_test(data = COVID_restricted, 
+                                      g = opt_dnn_net_igraph, 
+                                      name = "dnn_restricted") 
+moran_dnn_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
+                                                 g = opt_dnn_net_igraph, 
+                                                 name = "dnn_unrestricted") 
 
 # create GNAR object 
 opt_dnn_net_gnar <- opt_dnn_net_igraph %>% 
@@ -733,10 +766,15 @@ graph_char_dnn <- network_characteristics(opt_dnn_net_igraph,
 # Moran's I ---------------------------------------------------------------
 # spatial autocorrelation measured as Moran's I for each network
 # Queen 
-g <- covid_net_queen_igraph
 moran_queen <- moran_I_permutation_test(data = COVID_weekly_data, 
                                         g = covid_net_queen_igraph, 
                                         name = "queen")
+moran_queen_restricted <- moran_I_permutation_test(data = COVID_restricted, 
+                                                   g = covid_net_queen_igraph, 
+                                                   name = "queen_restricted")
+moran_queen_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
+                                                     g = covid_net_queen_igraph, 
+                                                     name = "queen_unrestricted")
 
 
 # Economic hubs 
@@ -744,32 +782,76 @@ moran_eco_hubs <- moran_I_permutation_test(data = COVID_weekly_data,
                                            g = covid_net_eco_hubs_igraph, 
                                            county_index = county_index_eco_hubs, 
                                            name = "eco_hubs")
+moran_eco_hubs_restricted <- moran_I_permutation_test(data = COVID_restricted, 
+                                           g = covid_net_eco_hubs_igraph, 
+                                           county_index = county_index_eco_hubs, 
+                                           name = "eco_hubs_restricted")
+moran_eco_hubs_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
+                                                      g = covid_net_eco_hubs_igraph, 
+                                                      county_index = county_index_eco_hubs, 
+                                                      name = "eco_hubs_unrestricted")
+
 
 # Railway-based
 moran_train <- moran_I_permutation_test(data = COVID_weekly_data, 
                                         g = covid_net_train_igraph, 
                                         county_index = county_index_train, 
                                         name = "train") 
+moran_train_restricted <- moran_I_permutation_test(data = COVID_restricted, 
+                                        g = covid_net_train_igraph, 
+                                        county_index = county_index_train, 
+                                        name = "train_restricted")
+moran_train_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
+                                                   g = covid_net_train_igraph, 
+                                                   county_index = county_index_train, 
+                                                   name = "train_unrestricted")
+
 
 # Delaunay 
 moran_delaunay <- moran_I_permutation_test(data = COVID_weekly_data, 
                                            g = covid_net_delaunay_igraph, 
                                            name = "delaunay")
+moran_delaunay_restricted <- moran_I_permutation_test(data = COVID_restricted, 
+                                           g = covid_net_delaunay_igraph, 
+                                           name = "delaunay_restricted")
+moran_delaunay_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
+                                                      g = covid_net_delaunay_igraph, 
+                                                      name = "delaunay_unrestricted")
+
 
 # Gabriel 
 moran_gabriel <- moran_I_permutation_test(data = COVID_weekly_data, 
                                           g = covid_net_gabriel_igraph, 
                                           name = "gabriel")
+moran_gabriel_restricted <- moran_I_permutation_test(data = COVID_restricted, 
+                                          g = covid_net_gabriel_igraph, 
+                                          name = "gabriel_restricted")
+moran_gabriel_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
+                                                     g = covid_net_gabriel_igraph, 
+                                                     name = "gabriel_unrestricted")
+
 
 # Relative 
 moran_relative <- moran_I_permutation_test(data = COVID_weekly_data, 
                                            g = covid_net_relative_igraph, 
                                            name = "relative")
+moran_relative_restricted <- moran_I_permutation_test(data = COVID_restricted, 
+                                           g = covid_net_relative_igraph, 
+                                           name = "relative_restricted")
+moran_relative_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
+                                                      g = covid_net_relative_igraph, 
+                                                      name = "relative_unrestricted")
 
 # SOI
 moran_soi <- moran_I_permutation_test(data = COVID_weekly_data, 
                                       g = covid_net_soi_igraph, 
                                       name = "soi")
+moran_soi_restricted <- moran_I_permutation_test(data = COVID_restricted, 
+                                      g = covid_net_soi_igraph, 
+                                      name = "soi_restricted")
+moran_soi_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
+                                                 g = covid_net_soi_igraph, 
+                                                 name = "soi_unrestricted")
 
 # Complete 
 moran_complete <- moran_I_permutation_test(data = COVID_weekly_data, 
@@ -788,6 +870,30 @@ morans_per_test <- c(moran_train,
                      moran_soi, 
                      moran_relative, 
                      moran_complete)
+
+morans_per_test_restricted <- c(moran_train_restricted, 
+                     moran_queen_restricted, 
+                     moran_eco_hubs_restricted, 
+                     moran_knn_restricted, 
+                     moran_dnn_restricted, 
+                     moran_delaunay_restricted, 
+                     moran_gabriel_restricted, 
+                     moran_soi_restricted, 
+                     moran_relative_restricted) %>% 
+  round(3)
+
+morans_per_test_unrestricted <- c(moran_train_unrestricted, 
+                     moran_queen_unrestricted, 
+                     moran_eco_hubs_unrestricted, 
+                     moran_knn_unrestricted, 
+                     moran_dnn_unrestricted, 
+                     moran_delaunay_unrestricted, 
+                     moran_gabriel_unrestricted, 
+                     moran_soi_unrestricted, 
+                     moran_relative_unrestricted) %>% 
+  round(3)
+
+
 
 # Network characteristics -------------------------------------------------
 # Queen

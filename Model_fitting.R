@@ -18,6 +18,10 @@ library(spdep) # for neighbourhood construction
 library(expp)
 library(rlist)
 library(forecast)
+library(ade4) # igraph to neighbourhood list object
+library(Hmisc) # for weighted variance 
+library(Metrics) # for MASE computation 
+library(ape)
 
 
 # load vectors and GNAR objects 
@@ -162,38 +166,6 @@ best_for_subset_complete <- fit_and_predict_for_restrictions(net = complete_net_
                                                              data_list = datasets_list_coarse)
 best_for_subset_complete$network <- "Complete"
 
-# compare best-performing models across networks
-best_for_subset <- rbind(best_for_subset_queen,
-                         best_for_subset_eco_hub, 
-                         best_for_subset_train,
-                         best_for_subset_delaunay, 
-                         best_for_subset_gabriel, 
-                         best_for_subset_relative, 
-                         best_for_subset_soi, 
-                         best_for_subset_complete)
-
-# for latex 
-strCaption <- "Overview over the best performing model for every COVID-19 data 
-subset for every COVID-19 network, excluding the KNN and DNN network"
-print(xtable(best_for_subset[, c(4, 1, 2, 3)],
-             digits=2,
-             caption=strCaption,
-             label="tab:best_model_subsets", 
-             align = c("", "l", "|", "r", "r", "r")),
-      include.rownames=FALSE, 
-      include.colnames=FALSE, 
-      caption.placement="bottom",
-      hline.after=NULL,
-      add.to.row = list(pos = list(-1,
-                                   nrow(best_for_subset[, c(4, 1, 2, 3)])),
-                        command = c(paste("\\toprule \n",
-                                          "Network & data subset & best model &
-                                          BIC \\\\\n",
-                                          "\\midrule \n"),
-                                    "\\bottomrule \n")
-      )
-)
-
 
 # construct KNN networks with different neighbourhood size k, fit GNAR models 
 # and select best performing model via the BIC
@@ -334,13 +306,54 @@ best_subset_knn_dnn_final <- best_subset_knn_dnn %>%
   dplyr::select(-hyperparam)
 
 
-best_for_subset_large_df <- rbind(best_for_subset, 
-                                  best_subset_knn_dnn_final)
+best_for_subset <- rbind(best_for_subset_queen,
+                         best_for_subset_eco_hub, 
+                         best_for_subset_train,
+                         best_for_subset_delaunay, 
+                         best_for_subset_gabriel, 
+                         best_for_subset_relative, 
+                         best_for_subset_soi, 
+                         best_for_subset_complete) 
 
+best_for_subset_large_df <- rbind(best_for_subset, 
+                                  best_subset_knn_dnn_final) %>% 
+  mutate(ds = ifelse(data_subset == 1, 
+                     "restricted", 
+                     "unrestricted"))
+
+# for latex 
+strCaption <- "Overview over the best performing GNAR model for each network on 
+the restricted and unrestricted data set"
+print(xtable(best_for_subset_large_df[, c(4, 5, 2, 3)],
+             digits=2,
+             caption=strCaption,
+             label="tab:best_model_subsets", 
+             align = c("", "l", "|", "r", "r", "r")),
+      include.rownames=FALSE, 
+      include.colnames=FALSE, 
+      caption.placement="bottom",
+      hline.after=NULL,
+      add.to.row = list(pos = list(-1,
+                                   nrow(best_for_subset_large_df[, c(4, 5, 2, 3)])),
+                        command = c(paste("\\toprule \n",
+                                          "Network & data subset & best model &
+                                          BIC \\\\\n",
+                                          "\\midrule \n"),
+                                    "\\bottomrule \n")
+      )
+)
+
+# identify best model across all network 
 best_for_subset_all <-  best_for_subset_large_df %>% 
   group_by(data_subset) %>% 
   filter(BIC == min(BIC)) %>% 
   arrange(data_subset)
+
+best_for_subset_large_df %>% 
+  group_by(data_subset) %>% 
+  summarize(min(BIC), 
+            max(BIC)) %>% 
+  view()
 
 # Construct optimal network (KNN / DNN) -----------------------------------
 # DNN d = 200
