@@ -306,25 +306,26 @@ best_subset_knn_dnn_final <- best_subset_knn_dnn %>%
   dplyr::select(-hyperparam)
 
 
-best_for_subset <- rbind(best_for_subset_queen,
-                         best_for_subset_eco_hub, 
-                         best_for_subset_train,
+best_for_subset <- rbind(best_for_subset_train,
+                         best_for_subset_queen,
+                         best_for_subset_eco_hub,
+                         best_subset_knn_dnn_final,
                          best_for_subset_delaunay, 
                          best_for_subset_gabriel, 
                          best_for_subset_relative, 
                          best_for_subset_soi, 
-                         best_for_subset_complete) 
-
-best_for_subset_large_df <- rbind(best_for_subset, 
-                                  best_subset_knn_dnn_final) %>% 
+                         best_for_subset_complete) %>% 
   mutate(ds = ifelse(data_subset == 1, 
                      "restricted", 
                      "unrestricted"))
 
+best_for_subset_ordered <- rbind(best_for_subset %>% filter(data_subset == 1), 
+                                      best_for_subset %>% filter(data_subset == 2))[c(4, 5, 2, 3)]
+
 # for latex 
 strCaption <- "Overview over the best performing GNAR model for each network on 
 the restricted and unrestricted data set"
-print(xtable(best_for_subset_large_df[, c(4, 5, 2, 3)],
+print(xtable(best_for_subset_ordered,
              digits=2,
              caption=strCaption,
              label="tab:best_model_subsets", 
@@ -334,7 +335,7 @@ print(xtable(best_for_subset_large_df[, c(4, 5, 2, 3)],
       caption.placement="bottom",
       hline.after=NULL,
       add.to.row = list(pos = list(-1,
-                                   nrow(best_for_subset_large_df[, c(4, 5, 2, 3)])),
+                                   nrow(best_for_subset_ordered)),
                         command = c(paste("\\toprule \n",
                                           "Network & data subset & best model &
                                           BIC \\\\\n",
@@ -1164,6 +1165,46 @@ print(xtable(mean_arima_df[, c(1, 2, 3, 7, 5, 6)],
 mean_arima_df$mean_AIC
 
 
+
+# BIC and density ---------------------------------------------------------
+density_BIC <- data.frame(density = c(covid_net_train_igraph %>% graph.density(), 
+                                      covid_net_queen_igraph %>% graph.density(), 
+                                      covid_net_eco_hubs_igraph %>% graph.density(), 
+                                      knn_7_igraph %>% graph.density(), 
+                                      dnn_200_igraph %>% graph.density(), 
+                                      covid_net_delaunay_igraph %>% graph.density(), 
+                                      covid_net_gabriel_igraph %>% graph.density(), 
+                                      covid_net_soi_igraph %>% graph.density(), 
+                                      covid_net_relative_igraph %>% graph.density(), 
+                                      1, 
+                                      
+                                      covid_net_train_igraph %>% graph.density(), 
+                                      covid_net_queen_igraph %>% graph.density(), 
+                                      covid_net_eco_hubs_igraph %>% graph.density(), 
+                                      knn_21_igraph %>% graph.density(), 
+                                      dnn_325_igraph %>% graph.density(), 
+                                      covid_net_delaunay_igraph %>% graph.density(), 
+                                      covid_net_gabriel_igraph %>% graph.density(), 
+                                      covid_net_soi_igraph %>% graph.density(), 
+                                      covid_net_relative_igraph %>% graph.density(), 
+                                      1), 
+                          BIC = best_for_subset_ordered$BIC, 
+                          Data = best_for_subset_ordered$ds
+                          )
+
+
+g <- ggplot(data = density_BIC, 
+       aes(x = density, 
+           y = BIC)) +
+  geom_point() +
+  geom_line() +
+  facet_grid(Data ~., scales="free")
+
+ggsave(file = "Figures/GNAR_pandemic_phases/BIC_density.pdf", 
+       plot = g, 
+       width = 13, 
+       height = 13, 
+       unit = "cm")
 
 # Residual analysis for pandemic phases -----------------------------------
 residuals_restrictive <- check_and_plot_residuals_subset(model = best_model_restrictive, 
