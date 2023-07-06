@@ -22,7 +22,7 @@ library(ade4) # igraph to neighbourhood list object
 library(Hmisc) # for weighted variance 
 library(Metrics) # for MASE computation 
 library(ape)
-
+library(ggrepel)
 
 # load vectors and GNAR objects 
 load(file = "Data/RObjects/GNAR.RData")
@@ -1189,21 +1189,31 @@ density_BIC <- data.frame(density = c(covid_net_train_igraph %>% graph.density()
                                       covid_net_relative_igraph %>% graph.density(), 
                                       1), 
                           BIC = best_for_subset_ordered$BIC, 
-                          Data = best_for_subset_ordered$ds
+                          Data = best_for_subset_ordered$ds, 
+                          Name = c(c("Railway", "Queen", "Eco. hub", "KNN k=7", 
+                                       "DNN d=200", "Delaunay", "Gabriel", "SOI", 
+                                       "Rel.", "Complete"), 
+                                   c("Railway", "Queen", "Eco. hub", "KNN k=21", 
+                                     "DNN d=325", "Delaunay", "Gabriel", "SOI", 
+                                     "Rel.", "Complete"))
                           )
 
 
 g <- ggplot(data = density_BIC, 
        aes(x = density, 
-           y = BIC)) +
+           y = BIC, 
+           label = Name)) +
   geom_point() +
-  geom_line() +
-  facet_grid(Data ~., scales="free")
+  geom_line(linetype = "dashed") +
+  geom_text_repel(check_overlap = T, nudge_y = 0.1, angle = 0) +
+  facet_grid(Data ~., scales="free") +
+  theme(panel.grid = element_blank()) +
+  labs(x = "Network")
 
 ggsave(file = "Figures/GNAR_pandemic_phases/BIC_density.pdf", 
        plot = g, 
-       width = 13, 
-       height = 13, 
+       width = 25, 
+       height = 15, 
        unit = "cm")
 
 # Residual analysis for pandemic phases -----------------------------------

@@ -70,7 +70,6 @@ model_queen <- fit_and_predict(alpha = 5,
                                return_model = TRUE, 
                                forecast_window = 0)
 
-model_queen$mod
 
 
 # Simulation Test ---------------------------------------------------------
@@ -84,11 +83,13 @@ coef_model <- data.frame(type = c("dmatalpha1", "dmatbeta1.1", "dmatbeta1.2",
                                   "dmatalpha3", "dmatbeta3.1", 
                                   "dmatalpha4",  "dmatbeta4.1",
                                   "dmatalpha5", "dmatbeta5.1"), 
-                         param = c(0.1, 0.16, 0.27,
-                                   0.15, 0.13,
-                                   0.2, 0.05,
-                                   -0.1, 0.19,
-                                   0.1, -0.1))
+                         param = model_queen$mod$coefficients)
+
+# c(0.1, 0.16, 0.27,
+#   0.15, 0.13,
+#   0.2, 0.05,
+#   -0.1, 0.19,
+#   0.1, -0.1)
 
 
 
@@ -97,10 +98,16 @@ simulation_test_queen <- simulate_time_series(gnar_object = covid_net_queen_gnar
                                               alpha_order = 5, 
                                               beta_order =  c(2, 1, 1, 1, 1), 
                                               initial_mean = 10, 
-                                              var_noise = 1, 
+                                              var_noise = 0.001, 
                                               county_index = county_index_queen, 
                                               timeframe = 1000)
-save(simulation_test_queen, file = "Data/RObjects/Simulation.RData")
+save(simulation_test_queen, file = "Data/RObjects/Simulation_var_001.RData")
+
+
+load(file = "Data/RObjects/Simulation.RData")
+
+simulation_test_queen %>% tail()
+simulation_test_queen$ID %>% var()
 
 # re-compute GNA model coefficients 
 coef_test_queen <- reconstruct_coefficients(model_coef = coef_model, 
