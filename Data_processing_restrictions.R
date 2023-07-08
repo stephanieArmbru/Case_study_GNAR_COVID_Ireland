@@ -106,6 +106,21 @@ COVID_weekly_data$restriction_date <- as.Date(NA)
 COVID_weekly_data$sentiment <- NA
 COVID_weekly_data$strain <- NA
 
+
+plot_strains <- data.frame(date = seq(as.Date("2020-03-01"), 
+                                      as.Date("2023-01-22"), 
+                                      by = 1), 
+                           strain = NA)
+
+for (i in seq(1, nrow(plot_strains))) {
+  current_date <- plot_strains$date[i]
+  
+  which_strain <- strains[strains$onset > current_date, ]$index %>% min() - 1
+  
+  plot_strains$strain[i] <- strains[which_strain, ]$variant
+  
+}
+
 # assign each week the predominant COVID-19 virus strain  
 for (i in seq(1, nrow(COVID_weekly_data))) {
   current_date <- COVID_weekly_data$yw[i]
@@ -129,7 +144,7 @@ for (i in seq(1, nrow(COVID_weekly_data))) {
 
 
 # plot restrictions and virus strains 
-ggplot(COVID_weekly_data) +
+g <- ggplot(COVID_weekly_data) +
   geom_rect(aes(xmin = yw, xmax = lead(yw),
                 ymin = -Inf, ymax = Inf,
                 fill = strain)) +
@@ -144,16 +159,15 @@ ggplot(COVID_weekly_data) +
   xlab("Time") +
   ylab("COVID-19 ID") + 
   scale_color_brewer(palette = "Set1") +
-  scale_fill_manual(values = c("Original" = "#FAFAFA", 
-                               "Alpha" = "#eeeeee", 
-                               "Delta" = "#E1E5E8", 
-                               "Omicron I" = "#D0D5D9", 
+  scale_fill_manual(values = c("Original" = "#FAFAFA",
+                               "Alpha" = "#eeeeee",
+                               "Delta" = "#E1E5E8",
+                               "Omicron I" = "#D0D5D9",
                                "Omicron II" = "#ABB0B8")) +
   theme(legend.position = "none", 
         plot.margin = unit(c(1, 1, 1, 1), "cm"))
 ggsave("Figures/Visualisation/covid_id_restrictions.pdf", 
        width = 25, height = 14, unit = "cm")
-
 
 
 # Split dataset -----------------------------------------------------------
@@ -367,37 +381,36 @@ data_plot <- COVID_weekly_data %>%
   mutate(coarse_phase = ifelse(phase == 1 | phase == 3, 0, 1))
 
 
-
-data_plot <- rbind(data_restrictive %>% 
-                     mutate(phase = "restrictive", 
-                            yw = rownames(data_restrictive) %>% 
-                              as.Date()), 
-                   data_free %>% mutate(phase = "free", 
-                                        yw = rownames(data_free) %>% 
-                                          as.Date())) %>% 
-  gather("county", "weeklyCases", -c(phase, yw)) 
-
-
 # plot restriction phases 
-ggplot(data_plot) +
-  geom_rect(aes(xmin = yw, xmax = lead(yw),
-                ymin = -Inf, ymax = Inf,
-                fill = strain)) +
-  geom_line(aes(x = yw, 
+g <- ggplot() +
+  geom_line(data = plot_strains, 
+            aes(x = date, 
+                y = -550,
+                color = strain), 
+            size = 5) +
+  geom_line(data = data_plot, 
+            aes(x = yw, 
                 y = weeklyCases, 
                 group = CountyName, 
-                color = coarse_phase %>% as.factor())) +
+                color = coarse_phase %>% 
+                  as.factor())) +
   xlab("Time") +
   ylab("COVID-19 ID") + 
-  scale_color_brewer(palette = "Set1") +
-  scale_fill_manual(values = c("Original" = "#FAFAFA", 
-                               "Alpha" = "#eeeeee", 
-                               "Delta" = "#E1E5E8", 
-                               "Omicron I" = "#D0D5D9", 
-                               "Omicron II" = "#ABB0B8")) +
+  scale_color_manual(values = c("Original" = "#E5E4E2", 
+                               "Alpha" = "#D3D3D3", 
+                               "Delta" = "#C0C0C0", 
+                               "Omicron I" = "#A9A9A9", 
+                               "Omicron II" = "#899499", 
+                               "0" = "#D55E00", 
+                               "1" = "#009E73")) +
   theme(legend.position = "none", 
-        plot.margin = unit(c(1, 1, 1, 1), "cm"))
+        plot.margin = unit(c(1, 1, 1, 1), "cm"), 
+        panel.grid = element_blank())
+
+
+  
 ggsave("Figures/Visualisation/covid_id_pandemic_phases.pdf", 
+       plot = g, 
        width = 25, height = 14, unit = "cm")
 
 
