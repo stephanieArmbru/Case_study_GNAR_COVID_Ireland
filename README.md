@@ -2,6 +2,14 @@
 
 R code for paper Armbruster and Reinert, 2023, "COVID-19 incidence in the Republic of Ireland:  A case study for network-based time series models"
 
+### For citation: <br />
+@article{armbruster2023covid,
+  title={COVID-19 incidence in the Republic of Ireland: A case study for network-based time series models},
+  author={Armbruster, Stephanie and Reinert, Gesine},
+  journal={arXiv preprint arXiv:2307.06199},
+  year={2023}
+}
+
 ## Data
 Folder Data includes the following datasets: <br />
 * COVID-19_HPSC_County_Statistics_Historic_Data.csv: data set with daily cumulative COVID-19 incidence from Ordnance Survey Ireland, 2023 <br />
