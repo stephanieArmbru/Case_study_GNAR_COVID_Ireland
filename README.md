@@ -3,11 +3,11 @@
 R code for paper Armbruster and Reinert, 2023, "COVID-19 incidence in the Republic of Ireland:  A case study for network-based time series models"
 
 ### For citation: <br />
-@article{armbruster2023covid,
-  title={COVID-19 incidence in the Republic of Ireland: A case study for network-based time series models},
-  author={Armbruster, Stephanie and Reinert, Gesine},
-  journal={arXiv preprint arXiv:2307.06199},
-  year={2023}
+@article{armbruster2023covid,<br />
+  title={COVID-19 incidence in the Republic of Ireland: A case study for network-based time series models},<br />
+  author={Armbruster, Stephanie and Reinert, Gesine},<br />
+  journal={arXiv preprint arXiv:2307.06199},<br />
+  year={2023}<br />
 }
 
 ## Data
