@@ -15,7 +15,6 @@ library(tidyverse)
 library(magrittr) # for pipping 
 library(xtable) # for tables 
 library(spdep) # for neighbourhood construction 
-library(expp)
 library(rlist)
 library(forecast)
 library(ade4) # igraph to neighbourhood list object
@@ -173,12 +172,12 @@ knn_best <- list()
 
 for (k in seq(1, 26, by = 2)) {
   # create nb list
-  nb_knn <- knearneigh(x = coord_urbanisation, 
-                       k = k, 
+  nb_knn <- knearneigh(x = coord_urbanisation,
+                       k = k,
                        longlat = TRUE) %>% 
     knn2nb(row.names = coord_urbanisation %>% row.names())
   
-  # create igraph object
+  # Create igraph from adjacency matrix
   covid_net_knn_igraph <- neighborsDataFrame(nb = nb_knn) %>% 
     graph_from_data_frame(directed = FALSE) %>% 
     igraph::simplify() 
@@ -320,7 +319,7 @@ best_for_subset <- rbind(best_for_subset_train,
                      "unrestricted"))
 
 best_for_subset_ordered <- rbind(best_for_subset %>% filter(data_subset == 1), 
-                                      best_for_subset %>% filter(data_subset == 2))[c(4, 5, 2, 3)]
+                                 best_for_subset %>% filter(data_subset == 2))[c(4, 5, 2, 3)]
 
 # for latex 
 strCaption <- "Overview over the best performing GNAR model for each network on 
@@ -344,17 +343,15 @@ print(xtable(best_for_subset_ordered,
       )
 )
 
-# identify best model across all network 
-best_for_subset_all <-  best_for_subset_large_df %>% 
-  group_by(data_subset) %>% 
-  filter(BIC == min(BIC)) %>% 
-  arrange(data_subset)
 
-best_for_subset_large_df %>% 
-  group_by(data_subset) %>% 
-  summarize(min(BIC), 
-            max(BIC)) %>% 
-  view()
+# identify best model across all network 
+best_for_subset_all <-  best_for_subset_ordered %>% 
+  group_by(ds) %>% 
+  filter(BIC == min(BIC)) %>% 
+  arrange(ds)
+
+best_for_subset_all %>% view()
+
 
 # Construct optimal network (KNN / DNN) -----------------------------------
 # DNN d = 200
@@ -852,7 +849,7 @@ m_2_delaunay_I <- plot_mase_I(mase_overview = mase_2_overview,
                                         "subset_2_soi", 
                                         "subset_2_train", 
                                         "ARIMA"), 
-                              color_types = c("ARIMA" = "grey", 
+                              color_types = c("ARIMA" = "#3A3B3C", 
                                               "subset_2_gabriel" = "#00BFC4", 
                                               "subset_2_relative" = "#00B0F6", 
                                               "subset_2_soi" = "#9590FF", 
@@ -868,7 +865,7 @@ m_2_delaunay_II <- plot_mase_I(mase_overview = mase_2_overview,
                                          "subset_2_soi", 
                                          "subset_2_train", 
                                          "ARIMA"), 
-                               color_types = c("ARIMA" = "grey", 
+                               color_types = c("ARIMA" = "#3A3B3C", 
                                                "subset_2_gabriel" = "#00BFC4", 
                                                "subset_2_relative" = "#00B0F6", 
                                                "subset_2_soi" = "#9590FF", 
@@ -884,7 +881,7 @@ m_2_delaunay_III <- plot_mase_I(mase_overview = mase_2_overview,
                                           "subset_2_soi", 
                                           "subset_2_train", 
                                           "ARIMA"), 
-                                color_types = c("ARIMA" = "grey", 
+                                color_types = c("ARIMA" = "#3A3B3C", 
                                                 "subset_2_gabriel" = "#00BFC4", 
                                                 "subset_2_relative" = "#00B0F6", 
                                                 "subset_2_soi" = "#9590FF", 
@@ -901,7 +898,7 @@ m_2_knn_I <- plot_mase_II(mase_overview = mase_2_overview,
                                     "subset_2_eco_hub", 
                                     "subset_2_complete", 
                                     "ARIMA"), 
-                          color_types = c("ARIMA" = "grey", 
+                          color_types = c("ARIMA" = "#3A3B3C", 
                                           "subset_2_knn" = "#F8766D", 
                                           "subset_2_dnn" = "#D89000", 
                                           "subset_2_complete" = "#A3A500", 
@@ -917,7 +914,7 @@ m_2_knn_II <- plot_mase_II(mase_overview = mase_2_overview,
                                      "subset_2_eco_hub", 
                                      "subset_2_complete", 
                                      "ARIMA"), 
-                           color_types = c("ARIMA" = "grey", 
+                           color_types = c("ARIMA" = "#3A3B3C", 
                                            "subset_2_knn" = "#F8766D", 
                                            "subset_2_dnn" = "#D89000", 
                                            "subset_2_complete" = "#A3A500", 
@@ -933,7 +930,7 @@ m_2_knn_III <- plot_mase_II(mase_overview = mase_2_overview,
                                       "subset_2_eco_hub", 
                                       "subset_2_complete", 
                                       "ARIMA"), 
-                            color_types = c("ARIMA" = "grey", 
+                            color_types = c("ARIMA" = "#3A3B3C", 
                                             "subset_2_knn" = "#F8766D", 
                                             "subset_2_dnn" = "#D89000", 
                                             "subset_2_complete" = "#A3A500", 
@@ -952,7 +949,7 @@ g_2_delaunay_I <- plot_predicted_vs_fitted_I(mase_overview = mase_2_overview,
                                                        "subset_2_soi", 
                                                        "subset_2_train", 
                                                        "ARIMA"), 
-                                             color_types = c("ARIMA" = "grey", 
+                                             color_types = c("ARIMA" = "#3A3B3C", 
                                                              "subset_2_gabriel" = "#00BFC4", 
                                                              "subset_2_relative" = "#00B0F6", 
                                                              "subset_2_soi" = "#9590FF", 
@@ -968,7 +965,7 @@ g_2_delaunay_II <- plot_predicted_vs_fitted_I(mase_overview = mase_2_overview,
                                                         "subset_2_soi", 
                                                         "subset_2_train", 
                                                         "ARIMA"), 
-                                              color_types = c("ARIMA" = "grey", 
+                                              color_types = c("ARIMA" = "#3A3B3C", 
                                                               "subset_2_gabriel" = "#00BFC4", 
                                                               "subset_2_relative" = "#00B0F6", 
                                                               "subset_2_soi" = "#9590FF", 
@@ -984,7 +981,7 @@ g_2_delaunay_III <- plot_predicted_vs_fitted_I(mase_overview = mase_2_overview,
                                                          "subset_2_soi", 
                                                          "subset_2_train", 
                                                          "ARIMA"), 
-                                               color_types = c("ARIMA" = "grey", 
+                                               color_types = c("ARIMA" = "#3A3B3C", 
                                                                "subset_2_gabriel" = "#00BFC4", 
                                                                "subset_2_relative" = "#00B0F6", 
                                                                "subset_2_soi" = "#9590FF", 
@@ -1001,7 +998,7 @@ g_2_knn_I <- plot_predicted_vs_fitted_II(mase_overview = mase_2_overview,
                                                    "subset_2_eco_hub", 
                                                    "subset_2_complete", 
                                                    "ARIMA"), 
-                                         color_types = c("ARIMA" = "grey", 
+                                         color_types = c("ARIMA" = "#3A3B3C", 
                                                          "subset_2_knn" = "#F8766D", 
                                                          "subset_2_dnn" = "#D89000", 
                                                          "subset_2_complete" = "#A3A500", 
@@ -1017,7 +1014,7 @@ g_2_knn_II <- plot_predicted_vs_fitted_II(mase_overview = mase_2_overview,
                                                     "subset_2_eco_hub", 
                                                     "subset_2_complete", 
                                                     "ARIMA"), 
-                                          color_types = c("ARIMA" = "grey", 
+                                          color_types = c("ARIMA" = "#3A3B3C", 
                                                           "subset_2_knn" = "#F8766D", 
                                                           "subset_2_dnn" = "#D89000", 
                                                           "subset_2_complete" = "#A3A500", 
@@ -1033,7 +1030,7 @@ g_2_knn_III <- plot_predicted_vs_fitted_II(mase_overview = mase_2_overview,
                                                      "subset_2_eco_hub", 
                                                      "subset_2_complete", 
                                                      "ARIMA"), 
-                                           color_types = c("ARIMA" = "grey", 
+                                           color_types = c("ARIMA" = "#3A3B3C", 
                                                            "subset_2_knn" = "#F8766D", 
                                                            "subset_2_dnn" = "#D89000", 
                                                            "subset_2_complete" = "#A3A500", 

@@ -29,11 +29,9 @@ library(mapview) # for saving
 
 # for neighbourhood construction 
 library(spdep) 
-# to create neighbourhood data frame
-library(expp) 
 
 # for sphere of influence network 
-library(rgeos)
+# library(rgeos)
 library(dbscan)
 
 # for visualising the network
@@ -1072,31 +1070,32 @@ opt_knn_mod %>% coef()
 
 
 # compute Moran's I
-moran_knn <- moran_I(data = COVID_weekly_data, 
-                     nb_list = opt_knn_net)
-# visualise Moran's I
-ggplot(moran_knn, 
-       aes(x = dates, 
-           y = moran)) +
-  geom_line() +
-  xlab("Time") +
-  ylab("Moran's I") +
-  geom_vline(aes(xintercept = as.Date("18.08.2020",
-                                      format = "%d.%m.%Y"), 
-                 color = "County-specific restrictions")) +
-  geom_vline(aes(xintercept = as.Date("26.12.2020", 
-                                      format = "%d.%m.%Y"), 
-                 color = "Level-5 lockdown")) +
-  geom_vline(aes(xintercept = as.Date("26.07.2021",
-                                      format = "%d.%m.%Y"), 
-                 color = "Indoor dining")) +
-  geom_vline(aes(xintercept = as.Date("06.03.2022",
-                                      format = "%d.%m.%Y"), 
-                 color = "End")) +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_moran_knn.pdf", 
-       width = 27, height = 14, unit = "cm")
+moran_knn <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                      g = opt_knn_net_igraph, 
+                                      name = "knn")
+# # visualise Moran's I
+# ggplot(moran_knn, 
+#        aes(x = dates, 
+#            y = moran)) +
+#   geom_line() +
+#   xlab("Time") +
+#   ylab("Moran's I") +
+#   geom_vline(aes(xintercept = as.Date("18.08.2020",
+#                                       format = "%d.%m.%Y"), 
+#                  color = "County-specific restrictions")) +
+#   geom_vline(aes(xintercept = as.Date("26.12.2020", 
+#                                       format = "%d.%m.%Y"), 
+#                  color = "Level-5 lockdown")) +
+#   geom_vline(aes(xintercept = as.Date("26.07.2021",
+#                                       format = "%d.%m.%Y"), 
+#                  color = "Indoor dining")) +
+#   geom_vline(aes(xintercept = as.Date("06.03.2022",
+#                                       format = "%d.%m.%Y"), 
+#                  color = "End")) +
+#   scale_color_brewer(palette = "Set1") + 
+#   theme(legend.position = "None")
+# ggsave("Figures/MoransI/covid_moran_knn.pdf", 
+#        width = 27, height = 14, unit = "cm")
 
 
 # Best DNN ----------------------------------------------------------------
@@ -1209,32 +1208,33 @@ BIC(opt_dnn_mod)
 
 
 # compute Moran's I
-moran_dnn <- moran_I(data = COVID_weekly_data, 
-                     nb_list = opt_dnn_net)
+moran_dnn <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                      g = opt_dnn_net_igraph, 
+                                      name = "dnn")
 
 # visualise Moran's I
-ggplot(moran_dnn, 
-       aes(x = dates, 
-           y = moran)) +
-  geom_line() +
-  xlab("Time") +
-  ylab("Moran's I") +
-  geom_vline(aes(xintercept = as.Date("18.08.2020",
-                                      format = "%d.%m.%Y"), 
-                 color = "County-specific restrictions")) +
-  geom_vline(aes(xintercept = as.Date("26.12.2020", 
-                                      format = "%d.%m.%Y"), 
-                 color = "Level-5 lockdown")) +
-  geom_vline(aes(xintercept = as.Date("26.07.2021",
-                                      format = "%d.%m.%Y"), 
-                 color = "Indoor dining")) +
-  geom_vline(aes(xintercept = as.Date("06.03.2022",
-                                      format = "%d.%m.%Y"), 
-                 color = "End")) +
-  scale_color_brewer(palette = "Set1") + 
-  theme(legend.position = "None")
-ggsave("Figures/MoransI/covid_moran_dnn.pdf", 
-       width = 27, height = 14, unit = "cm")
+# ggplot(moran_dnn, 
+#        aes(x = dates, 
+#            y = moran)) +
+#   geom_line() +
+#   xlab("Time") +
+#   ylab("Moran's I") +
+#   geom_vline(aes(xintercept = as.Date("18.08.2020",
+#                                       format = "%d.%m.%Y"), 
+#                  color = "County-specific restrictions")) +
+#   geom_vline(aes(xintercept = as.Date("26.12.2020", 
+#                                       format = "%d.%m.%Y"), 
+#                  color = "Level-5 lockdown")) +
+#   geom_vline(aes(xintercept = as.Date("26.07.2021",
+#                                       format = "%d.%m.%Y"), 
+#                  color = "Indoor dining")) +
+#   geom_vline(aes(xintercept = as.Date("06.03.2022",
+#                                       format = "%d.%m.%Y"), 
+#                  color = "End")) +
+#   scale_color_brewer(palette = "Set1") + 
+#   theme(legend.position = "None")
+# ggsave("Figures/MoransI/covid_moran_dnn.pdf", 
+#        width = 27, height = 14, unit = "cm")
 
 # Best model for each network ---------------------------------------------
 # find best model for each sparse and Complete network 
@@ -1524,7 +1524,7 @@ ggplot(mase_overview,
         axis.text.x = element_text(angle = 90, 
                                    vjust = 0.5, 
                                    hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
+  scale_color_manual(values = c("ARIMA" = "#3A3B3C", 
                                 "KNN" = "#F8766D", 
                                 "DNN" = "#D89000", 
                                 "Complete" = "#A3A500", 
@@ -1559,7 +1559,7 @@ ggplot(mase_overview %>% filter(type %in% c("Delaunay",
         axis.text.x = element_text(angle = 90, 
                                    vjust = 0.5, 
                                    hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
+  scale_color_manual(values = c("ARIMA" = "#3A3B3C", 
                                 "Gabriel" = "#00BFC4", 
                                 "Relative" = "#00B0F6", 
                                 "SOI" = "#9590FF", 
@@ -1588,7 +1588,7 @@ ggplot(mase_overview %>% filter(type %in% c("DNN",
         axis.text.x = element_text(angle = 90, 
                                    vjust = 0.5, 
                                    hjust=1)) +
-  scale_color_manual(values = c("ARIMA" = "grey", 
+  scale_color_manual(values = c("ARIMA" = "#3A3B3C", 
                                 "KNN" = "#F8766D", 
                                 "DNN" = "#D89000", 
                                 "Complete" = "#A3A500", 
@@ -1615,7 +1615,7 @@ ks_dnn <- ks_residuals(mase_dnn)
 
 # Scale-free --------------------------------------------------------------
 # analyse log-log behaviour and regression R squared
-queen_scale_free <- is_scale_free(covid_net_queen_igraph, 
+queen_scale_free <- is_scale_free(igraph_net = covid_net_queen_igraph, 
                                   network_name = "queen")
 queen_scale_free$graph
 queen_scale_free$R_squared

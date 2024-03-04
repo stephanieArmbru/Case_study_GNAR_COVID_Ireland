@@ -105,6 +105,28 @@ igraph2nb <- function(gr) {
   return(neig(edges = edges) %>% neig2nb())
 }
 
+
+neighborsDataFrame <- function(nb) {
+  
+  ks = data.frame(k = unlist(mapply(rep, 1:length(nb), 
+                                    sapply(nb, length), 
+                                    SIMPLIFY = FALSE) ), 
+                  k_nb = unlist(nb) )
+  
+  nams = data.frame(id = attributes(nb)$region.id, 
+                    k = 1:length(nb))
+  
+  o = merge(ks, nams, 
+            by.x = 'k', 
+            by.y = 'k')
+  o = merge(o, nams, 
+            by.x = 'k_nb', 
+            by.y = 'k', 
+            suffixes = c("","_neigh"))
+  
+  o[, c("id", "id_neigh")] %>% return()
+}
+
 # Network characteristics -------------------------------------------------
 # compute network characteristics
 network_characteristics <- function(igraph_obj, 
@@ -194,16 +216,16 @@ is_scale_free <- function(igraph_net, # igraph object required
   
   if (Newman) {
     df <- data.frame("X" = igraph_net %>% 
-                       degree() %>% 
+                       igraph::degree() %>% 
                        unique() %>% 
                        log())
     
     ecdf_fun <- igraph_net %>% 
-      degree() %>% 
+      igraph::degree() %>% 
       ecdf()
     
     df$Y <- igraph_net %>% 
-      degree() %>% 
+      igraph::degree() %>% 
       unique() %>% 
       ecdf_fun() %>% log()
     
@@ -347,13 +369,13 @@ moran_I_permutation_test <- function(data = COVID_weekly_data,
                    color = "End")) +
     geom_line(aes(x = dates, 
                   y = lower_ci), 
-              linetype = "dashed", color = "grey") +
+              linetype = "dashed", color = "#3A3B3C") +
     geom_line(aes(x = dates, 
                   y = upper_ci), 
-              linetype = "dashed", color = "grey") +
+              linetype = "dashed", color = "#3A3B3C") +
     geom_line(aes(x = dates, 
                   y = median), 
-              linetype = "dashed", color = "grey") +
+              linetype = "dashed", color = "#3A3B3C") +
     scale_color_brewer(palette = "Set1") + 
     theme(legend.position = "None")
   ggsave(paste0("Figures/MoransI/covid_moran_", name, ".pdf", collapse = ""), 
@@ -959,7 +981,7 @@ parameter_development <- function(data_list = datasets_list,
     geom_line(linetype  = "dashed") +
     ylab("coefficient values") +
     xlab("Restrictions") + 
-    scale_color_brewer(palette = "Set1") +
+    scale_color_brewer(palette = "Dark2") +
     theme(legend.position = "bottom") +
     guides(color = guide_legend(title = "GNAR coefficient"))
   
@@ -985,7 +1007,7 @@ parameter_development <- function(data_list = datasets_list,
     geom_line(linetype = "dashed") +
     ylab("coefficient values") +
     xlab("Restrictions") + 
-    scale_color_brewer(palette = "Set1") +
+    scale_color_brewer(palette = "Dark2") +
     theme(legend.position = "bottom") +
     guides(color = guide_legend(title = "GNAR coefficient"))
   
@@ -1067,7 +1089,7 @@ parameter_development_subsets <- function(data_list = datasets_list,
     geom_line(linetype  = "dashed") +
     ylab("coefficient values") +
     xlab("Restrictions") + 
-    scale_color_brewer(palette = "Set1") +
+    scale_color_brewer(palette = "Dark2") +
     theme(legend.position = "bottom") +
     guides(color = guide_legend(title = "GNAR coefficient"))
   
@@ -1093,7 +1115,7 @@ parameter_development_subsets <- function(data_list = datasets_list,
     geom_line(linetype = "dashed") +
     ylab("coefficient values") +
     xlab("Restrictions") + 
-    scale_color_brewer(palette = "Set1") +
+    scale_color_brewer(palette = "Dark2") +
     theme(legend.position = "bottom") +
     guides(color = guide_legend(title = "GNAR coefficient"))
   
@@ -1167,11 +1189,13 @@ parameter_development_phases <- function(data_list = datasets_list_coarse,
                   width=0.2, 
                   alpha = 0.5) +
     geom_line(linetype  = "dashed") +
-    ylab("coefficient values") +
-    xlab("Restrictions") + 
-    scale_color_brewer(palette = "Set1") +
-    theme(legend.position = "bottom") +
-    guides(color = guide_legend(title = "GNAR coefficient"))
+    labs(x = "Pandemic phase", 
+         y = "coefficient values", 
+         color = "") +
+    scale_color_brewer(palette = "Dark2") +
+    theme(legend.position = "bottom") 
+  # +
+  #   guides(color = guide_legend(title = "GNAR coefficient"))
   
   ggsave(file = paste0("Figures/ParameterDevelopment/alpha_order_", 
                        name,
@@ -1196,11 +1220,13 @@ parameter_development_phases <- function(data_list = datasets_list_coarse,
                   width=0.2, 
                   alpha = 0.5) +
     geom_line(linetype = "dashed") +
-    ylab("coefficient values") +
-    xlab("Restrictions") + 
-    scale_color_brewer(palette = "Set1") +
-    theme(legend.position = "bottom") +
-    guides(color = guide_legend(title = "GNAR coefficient"))
+    labs(x = "Pandemic phase", 
+         y = "coefficient values", 
+         color = "") +
+    scale_color_brewer(palette = "Dark2") +
+    theme(legend.position = "bottom") 
+  # +
+  #   guides(color = guide_legend(title = "GNAR coefficient"))
   
   ggsave(file = paste0("Figures/ParameterDevelopment/beta_order_", 
                        name,
@@ -1662,7 +1688,7 @@ plot_mase_I <- function(mase_overview,
                         type_name = "delaunay", 
                         counties_subset = all_counties[1:13], 
                         number_counties = 1, 
-                        color_types = c("ARIMA" = "grey", 
+                        color_types = c("ARIMA" = "#3A3B3C", 
                                         "subset_1_gabriel" = "#00BFC4", 
                                         "subset_1_relative" = "#00B0F6", 
                                         "subset_1_soi" = "#9590FF", 
@@ -1719,7 +1745,7 @@ plot_mase_II <- function(mase_overview,
                                    "subset_1_eco_hub", 
                                    "subset_1_complete", 
                                    "ARIMA"),
-                         color_types = c("ARIMA" = "grey", 
+                         color_types = c("ARIMA" = "#3A3B3C", 
                                          "subset_1_knn" = "#F8766D", 
                                          "subset_1_dnn" = "#D89000", 
                                          "subset_1_complete" = "#A3A500", 
@@ -1755,7 +1781,7 @@ plot_predicted_vs_fitted_I <- function(mase_overview,
                                        type_name = "delaunay", 
                                        counties_subset = all_counties[1:13], 
                                        number_counties = 1, 
-                                       color_types = c("ARIMA" = "grey", 
+                                       color_types = c("ARIMA" = "#3A3B3C", 
                                                        "subset_1_gabriel" = "#00BFC4", 
                                                        "subset_1_relative" = "#00B0F6", 
                                                        "subset_1_soi" = "#9590FF", 
@@ -1819,7 +1845,7 @@ plot_predicted_vs_fitted_II <- function(mase_overview,
                                                   "subset_1_eco_hub", 
                                                   "subset_1_complete", 
                                                   "ARIMA"),
-                                        color_types = c("ARIMA" = "grey", 
+                                        color_types = c("ARIMA" = "#3A3B3C", 
                                                         "subset_1_knn" = "#F8766D", 
                                                         "subset_1_dnn" = "#D89000", 
                                                         "subset_1_complete" = "#A3A500", 
