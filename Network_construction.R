@@ -27,10 +27,10 @@ library(mapview) # for saving
 # for neighbourhood construction 
 library(spdep) 
 # to create neighbourhood data frame
-library(expp) 
+# library(expp) 
 
 # for sphere of influence network 
-library(rgeos)
+# library(rgeos)
 library(dbscan)
 
 # for visualising the network
@@ -104,9 +104,9 @@ hubs <- c("Dublin",
 
 # Load maps data ----------------------------------------------------------
 # download Ireland data level 1 from GADM database
-ireland <- raster::getData('GADM',
-                           country='IRL',
-                           level = 1)
+# ireland <- raster::getData('GADM',
+#                            country='IRL',
+#                            level = 1)
 
 # comparison of county spelling in maps data and COVID data 
 setdiff(COVID_weekly_data$CountyName %>% unique(), ireland$NAME_1)
@@ -359,7 +359,7 @@ county_index_eco_hubs <- data.frame("CountyName" = ord_coord_eco_hubs %>%
 # plot(st_geometry(ireland_shp),
 #      border = "grey")
 # plot(nb_eco_hubs,
-#      ord_coord_eco_hub,
+#      ord_coord_eco_hubs,
 #      add = TRUE,
 #      pch = 19, cex = 0.6)
 # text(coord_hubs$X,
@@ -659,329 +659,36 @@ county_index_complete <- data.frame("CountyName" = complete_net_igraph %>%
                                       names(), 
                                     "index" = seq(1, 26))
 
+# KNN k = 21
+knn_21 <- knearneigh(x = coord_urbanisation, 
+                     k = 21, 
+                     longlat = TRUE) %>% 
+  knn2nb(row.names = coord_urbanisation %>% rownames(),)
 
-# KNN - DNN ---------------------------------------------------------------
-opt_knn_net <- knearneigh(x = coord_urbanisation, 
-                          k = 21, 
-                          longlat = TRUE) %>% 
-  knn2nb(row.names = coord_urbanisation %>% rownames())
-
-# create igraph object
-opt_knn_net_igraph <- neighborsDataFrame(nb = opt_knn_net) %>% 
-  graph_from_data_frame(directed = FALSE) %>% 
-  igraph::simplify()
-
-moran_knn <- moran_I_permutation_test(data = COVID_weekly_data, 
-                     g = opt_knn_net_igraph, 
-                     name = "knn")
-moran_knn_restricted <- moran_I_permutation_test(data = COVID_restricted, 
-                                                 g = opt_knn_net_igraph, 
-                                                 name = "knn_restricted")
-moran_knn_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
-                                                   g = opt_knn_net_igraph, 
-                                                   name = "knn_unrestricted")
-
-
-# create GNAR object 
-opt_knn_net_gnar <- opt_knn_net_igraph %>% 
-  igraphtoGNAR()
-
-# create ordered county index data frame
-county_index_opt_knn <- data.frame("CountyName" = opt_knn_net_igraph %>%
-                                     V() %>% 
-                                     names(), 
-                                   "index" = seq(1, 26))
-
-# compute network characteristics 
-graph_char_knn <- network_characteristics(opt_knn_net_igraph, 
-                                          "KNN")
-
-# visualise network 
-# plot(st_geometry(ireland_shp),
-#      border="grey")
-# plot(opt_knn_net,
-#      coord_urbanisation,
-#      add = TRUE,
-#      pch = 19, cex = 0.6)
-# text(coord_urbanisation[, 1],
-#      coord_urbanisation[, 2],
-#      labels = rownames(coord_urbanisation),
-#      cex = 0.8, font = 2, pos = 1)
-
-
-
-opt_dnn_net <- dnearneigh(x = coord_urbanisation, 
-                          d1 = 0, 
-                          d2 = 325,
-                          row.names = coord_urbanisation %>% rownames(),
-                          longlat = TRUE, 
-                          use_s2 = TRUE) 
-
-# create igraph object 
-opt_dnn_net_igraph <- neighborsDataFrame(opt_dnn_net) %>% 
+knn_21_igraph<- neighborsDataFrame(nb = knn_21) %>% 
   graph_from_data_frame(directed = FALSE) %>% 
   igraph::simplify() 
 
-opt_knn_net_igraph <- neighborsDataFrame(nb = opt_knn_net) %>% 
-  graph_from_data_frame(directed = FALSE) %>% 
-  igraph::simplify()
-
-moran_dnn <- moran_I_permutation_test(data = COVID_weekly_data, 
-                     g = opt_dnn_net_igraph, 
-                     name = "dnn") 
-moran_dnn_restricted <- moran_I_permutation_test(data = COVID_restricted, 
-                                      g = opt_dnn_net_igraph, 
-                                      name = "dnn_restricted") 
-moran_dnn_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
-                                                 g = opt_dnn_net_igraph, 
-                                                 name = "dnn_unrestricted") 
-
-# create GNAR object 
-opt_dnn_net_gnar <- opt_dnn_net_igraph %>% 
+knn_21_gnar <- knn_21_igraph %>% 
   igraphtoGNAR()
-
-# create ordered county index data frame
-county_index_opt_dnn <- data.frame("CountyName" = opt_dnn_net_igraph %>%
-                                     V() %>% 
-                                     names(), 
-                                   "index" = seq(1, 26))
-
-# compute network characteristics
-graph_char_dnn <- network_characteristics(opt_dnn_net_igraph, 
-                                          "DNN")
-
 
 # visualise network 
 # plot(st_geometry(ireland_shp),
 #      border="grey")
-# plot(opt_dnn_net,
+# plot(knn_21,
 #      coord_urbanisation,
-#      add = TRUE,
-#      pch = 19, cex = 0.6)
+#      pch = 19, cex = 0.6,
+#      add=TRUE)
 # text(coord_urbanisation[, 1],
 #      coord_urbanisation[, 2],
 #      labels = rownames(coord_urbanisation),
 #      cex = 0.8, font = 2, pos = 1)
-
-# Moran's I ---------------------------------------------------------------
-# spatial autocorrelation measured as Moran's I for each network
-# Queen 
-moran_queen <- moran_I_permutation_test(data = COVID_weekly_data, 
-                                        g = covid_net_queen_igraph, 
-                                        name = "queen")
-moran_queen_restricted <- moran_I_permutation_test(data = COVID_restricted, 
-                                                   g = covid_net_queen_igraph, 
-                                                   name = "queen_restricted")
-moran_queen_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
-                                                     g = covid_net_queen_igraph, 
-                                                     name = "queen_unrestricted")
-
-
-# Economic hubs 
-moran_eco_hubs <- moran_I_permutation_test(data = COVID_weekly_data, 
-                                           g = covid_net_eco_hubs_igraph, 
-                                           county_index = county_index_eco_hubs, 
-                                           name = "eco_hubs")
-moran_eco_hubs_restricted <- moran_I_permutation_test(data = COVID_restricted, 
-                                           g = covid_net_eco_hubs_igraph, 
-                                           county_index = county_index_eco_hubs, 
-                                           name = "eco_hubs_restricted")
-moran_eco_hubs_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
-                                                      g = covid_net_eco_hubs_igraph, 
-                                                      county_index = county_index_eco_hubs, 
-                                                      name = "eco_hubs_unrestricted")
-
-
-# Railway-based
-moran_train <- moran_I_permutation_test(data = COVID_weekly_data, 
-                                        g = covid_net_train_igraph, 
-                                        county_index = county_index_train, 
-                                        name = "train") 
-moran_train_restricted <- moran_I_permutation_test(data = COVID_restricted, 
-                                        g = covid_net_train_igraph, 
-                                        county_index = county_index_train, 
-                                        name = "train_restricted")
-moran_train_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
-                                                   g = covid_net_train_igraph, 
-                                                   county_index = county_index_train, 
-                                                   name = "train_unrestricted")
-
-
-# Delaunay 
-moran_delaunay <- moran_I_permutation_test(data = COVID_weekly_data, 
-                                           g = covid_net_delaunay_igraph, 
-                                           name = "delaunay")
-moran_delaunay_restricted <- moran_I_permutation_test(data = COVID_restricted, 
-                                           g = covid_net_delaunay_igraph, 
-                                           name = "delaunay_restricted")
-moran_delaunay_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
-                                                      g = covid_net_delaunay_igraph, 
-                                                      name = "delaunay_unrestricted")
-
-
-# Gabriel 
-moran_gabriel <- moran_I_permutation_test(data = COVID_weekly_data, 
-                                          g = covid_net_gabriel_igraph, 
-                                          name = "gabriel")
-moran_gabriel_restricted <- moran_I_permutation_test(data = COVID_restricted, 
-                                          g = covid_net_gabriel_igraph, 
-                                          name = "gabriel_restricted")
-moran_gabriel_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
-                                                     g = covid_net_gabriel_igraph, 
-                                                     name = "gabriel_unrestricted")
-
-
-# Relative 
-moran_relative <- moran_I_permutation_test(data = COVID_weekly_data, 
-                                           g = covid_net_relative_igraph, 
-                                           name = "relative")
-moran_relative_restricted <- moran_I_permutation_test(data = COVID_restricted, 
-                                           g = covid_net_relative_igraph, 
-                                           name = "relative_restricted")
-moran_relative_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
-                                                      g = covid_net_relative_igraph, 
-                                                      name = "relative_unrestricted")
-
-# SOI
-moran_soi <- moran_I_permutation_test(data = COVID_weekly_data, 
-                                      g = covid_net_soi_igraph, 
-                                      name = "soi")
-moran_soi_restricted <- moran_I_permutation_test(data = COVID_restricted, 
-                                      g = covid_net_soi_igraph, 
-                                      name = "soi_restricted")
-moran_soi_unrestricted <- moran_I_permutation_test(data = COVID_unrestricted, 
-                                                 g = covid_net_soi_igraph, 
-                                                 name = "soi_unrestricted")
-
-# Complete 
-moran_complete <- moran_I_permutation_test(data = COVID_weekly_data, 
-                                           g = complete_net_igraph, 
-                                           name = "complete")
-
-
-# Overview of test statistics
-morans_per_test <- c(moran_train, 
-                     moran_queen, 
-                     moran_eco_hubs, 
-                     moran_knn, 
-                     moran_dnn, 
-                     moran_delaunay, 
-                     moran_gabriel, 
-                     moran_soi, 
-                     moran_relative, 
-                     moran_complete)
-
-morans_per_test_restricted <- c(moran_train_restricted, 
-                     moran_queen_restricted, 
-                     moran_eco_hubs_restricted, 
-                     moran_knn_restricted, 
-                     moran_dnn_restricted, 
-                     moran_delaunay_restricted, 
-                     moran_gabriel_restricted, 
-                     moran_soi_restricted, 
-                     moran_relative_restricted) %>% 
-  round(3)
-
-morans_per_test_unrestricted <- c(moran_train_unrestricted, 
-                     moran_queen_unrestricted, 
-                     moran_eco_hubs_unrestricted, 
-                     moran_knn_unrestricted, 
-                     moran_dnn_unrestricted, 
-                     moran_delaunay_unrestricted, 
-                     moran_gabriel_unrestricted, 
-                     moran_soi_unrestricted, 
-                     moran_relative_unrestricted) %>% 
-  round(3)
-
-
-
-# Network characteristics -------------------------------------------------
-# Queen
-graph_queen <- network_characteristics(covid_net_queen_igraph, 
-                                       "queen")
-# Eco hub 
-graph_eco_hub <- network_characteristics(covid_net_eco_hubs_igraph, 
-                                         "eco_hub")
-# Railway-based 
-graph_train <- network_characteristics(covid_net_train_igraph, 
-                                       "train")
-# Delaunay triangulation
-graph_delaunay <- network_characteristics(covid_net_delaunay_igraph, 
-                                          "delaunay")
-# Gabriel 
-graph_gabriel <- network_characteristics(covid_net_gabriel_igraph, 
-                                         "gabriel")
-# Relative 
-graph_relative <- network_characteristics(covid_net_relative_igraph, 
-                                          "relative")
-# Sphere of influence 
-graph_soi <- network_characteristics(covid_net_soi_igraph, 
-                                     "soi")
-
-# KNN k = 21
-graph_knn <- network_characteristics(opt_knn_net_igraph, 
-                                     "knn")
-
-# DNN d = 325
-graph_dnn <- network_characteristics(opt_dnn_net_igraph, 
-                                     "dnn")
-
-
-
-
-# compare all networks (but KNN, DNN and Complete)
-graph_overview <- cbind("metric" = graph_queen$metric,
-                        "delauany" = graph_delaunay$delaunay %>% round(2), 
-                        "gabriel" = graph_gabriel$gabriel %>% round(2), 
-                        "soi" = graph_soi$soi %>% round(2),                         
-                        "relative" = graph_relative$relative %>% round(2), 
-                        "queen" = graph_queen$queen %>% round(2), 
-                        "eco_hub"= graph_eco_hub$eco_hub %>% round(2), 
-                        "train" = graph_train$train %>% round(2), 
-                        "knn" = graph_knn$knn %>% round(2), 
-                        "dnn" = graph_dnn$dnn %>% round(2)
-)
-
-# for latex 
-# limited characteristics 
-
-strCaption <- "Overview of network characteristics for the \\textbf{Railway-based},
-\\textbf{Queen's contiguity}, \\textbf{Economic (Eco.) hub}, \\textbf{KNN} ($k = 21$),
-\\textbf{DNN} ($d = 325$), \\textbf{Delaunay triangulation}, 
-\\textbf{Gabriel}, \\textbf{SOI}, \\textbf{Relative neighbourhood (Rel. neigh.)} network; 
-including average (av.) degree, average (av.) shortest path length (SPL), 
-average (av.) local clustering (clust.). The average shortest path length and average local clustering 
-coefficient for a Bernoulli Random Graph B(n, m) for each network is also reported."
-print(xtable(graph_overview[c(1, 3, 5, 8, 9), c(1, 8, 6, 7, 9, 10, 2, 3, 4, 5)],
-             digits=2,
-             caption=strCaption,
-             label="tab:network_char", 
-             align = c("", "l", "|", "r", "r", "r", "r", "r", "r", "r", "r", "r")),
-      include.rownames=FALSE, 
-      include.colnames=FALSE, 
-      caption.placement="bottom",
-      hline.after=NULL,
-      add.to.row = list(pos = list(-1,
-                                   nrow(graph_overview[c(1, 3, 5, 8, 9), c(1, 8, 6, 7, 9, 10, 2, 3, 4, 5)])),
-                        command = c(paste("\\toprule \n",
-                                          " Metric & Railway & Queen & Eco. hub 
-                                          & KNN & DNN & 
-                                          Delaunay & Gabriel &
-                                           SOI & Rel. neigh.  \\\\\n",
-                                          "\\midrule \n"),
-                                    "\\bottomrule \n")
-      )
-)
-
-
-
 
 
 
 # Save objects -----------------------------------------------------------
 # save neighbourhood lists 
-save(list = c("nb_list_queen", 
-              "opt_knn_net"),
+save(list = "nb_list_queen", 
      file = "Data/RObjects/nb_list.RData")
 
 # save GNAR objects for every network

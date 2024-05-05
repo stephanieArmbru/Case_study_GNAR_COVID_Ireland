@@ -199,64 +199,6 @@ network_characteristics <- function(igraph_obj,
   return(graph_char)
 }
 
-# check if network is scale-free via log-log plot and R squared 
-is_scale_free <- function(igraph_net, # igraph object required
-                          network_name, 
-                          Newman = TRUE) { # less-noise tail for formula acc. to Newman 2005
-  
-  
-  if (!Newman) {
-    df <- data.frame("X" = igraph_net %>% degree() %>% log()) %>% 
-      group_by(X) %>% 
-      mutate(Y = log(n() / gorder(igraph_net))) %>% 
-      ungroup()
-    
-    name_y <- "log. emp. distribution"
-  }
-  
-  if (Newman) {
-    df <- data.frame("X" = igraph_net %>% 
-                       igraph::degree() %>% 
-                       unique() %>% 
-                       log())
-    
-    ecdf_fun <- igraph_net %>% 
-      igraph::degree() %>% 
-      ecdf()
-    
-    df$Y <- igraph_net %>% 
-      igraph::degree() %>% 
-      unique() %>% 
-      ecdf_fun() %>% log()
-    
-    name_y <- "log. emp. cum. distribution"
-  }
-  
-  
-  g <- ggplot(df, 
-              aes(x = X, y = Y)) +
-    geom_point() +
-    geom_smooth(method = 'lm', 
-                formula = y~x, 
-                se = FALSE) +
-    xlab("log(d)") +
-    ylab(name_y)
-  
-  ggsave(file = paste0("Figures/ScaleFree/log_log_", network_name, ".pdf"), 
-         plot = g, 
-         width = 13, 
-         height = 13, 
-         unit = "cm")
-  
-  lin_reg_mod <- lm(Y ~ X, data = df)
-  s <- summary(lin_reg_mod)
-  
-  # return plot and R squared 
-  return(list("graph" = g, 
-              "R_squared" = s$r.squared))
-}
-
-
 # Correlation -------------------------------------------------------------
 # compute Residual Sum of Squares
 RSS <- function(GNARfit_object) {
@@ -328,6 +270,13 @@ moran_I_permutation_test <- function(data = COVID_weekly_data,
                                 na.rm = FALSE,
                                 alternative = "two.sided") %>% 
       list.cbind()
+    
+    # compute Moran's I similar metric based on Kendall's correlation coefficient 
+    # for (county in county_distMatrix) {
+    #   number_cases_date_county <- number_cases_date[]
+    #   
+    #   
+    # }
     
     moran_list[[date]] <- cbind(orig_result, 
                                 "lower_ci" = quantile_morans_I[1], 
@@ -1171,21 +1120,27 @@ parameter_development_phases <- function(data_list = datasets_list_coarse,
     
   }
   
-  param_df <- param %>% list.rbind() %>% data.frame()
+  param_df <- param %>% 
+    list.rbind() %>% 
+    data.frame()
+  
+  # format coefficient names 
+  param_df$coefficient_formated <- gsub("dmat2", "", 
+                                        param_df$coefficient)
   
   # visualise the change in coefficient values across data subsets  
   g_alpha <- ggplot(param_df  %>% 
-                      filter(grepl("alpha", coefficient)), 
+                      filter(grepl("alpha", coefficient_formated)), 
                     aes(x = restriction, 
                         y = estimate, 
-                        group = coefficient, 
-                        color = coefficient)) +
+                        group = coefficient_formated, 
+                        color = coefficient_formated)) +
     geom_point() +
     geom_errorbar(aes(ymin = lower, 
                       ymax = upper, 
                       x = restriction, 
-                      group = coefficient, 
-                      color = coefficient), 
+                      group = coefficient_formated, 
+                      color = coefficient_formated), 
                   width=0.2, 
                   alpha = 0.5) +
     geom_line(linetype  = "dashed") +
@@ -1206,17 +1161,17 @@ parameter_development_phases <- function(data_list = datasets_list_coarse,
   
   
   g_beta <- ggplot(param_df  %>% 
-                     filter(grepl("beta", coefficient)), 
+                     filter(grepl("beta", coefficient_formated)), 
                    aes(x = restriction, 
                        y = estimate, 
-                       group = coefficient, 
-                       color = coefficient)) +
+                       group = coefficient_formated, 
+                       color = coefficient_formated)) +
     geom_point() +
     geom_errorbar(aes(ymin = lower, 
                       ymax = upper, 
                       x = restriction, 
-                      group = coefficient, 
-                      color = coefficient), 
+                      group = coefficient_formated, 
+                      color = coefficient_formated), 
                   width=0.2, 
                   alpha = 0.5) +
     geom_line(linetype = "dashed") +
@@ -1679,12 +1634,12 @@ compute_MASE <- function(model,
 
 plot_mase_I <- function(mase_overview, 
                         mase_name = "restricted", 
-                        types = c("subset_1_delaunay", 
+                        types = c("ARIMA", 
                                   "subset_1_gabriel", 
                                   "subset_1_relative", 
                                   "subset_1_soi", 
-                                  "subset_1_train", 
-                                  "ARIMA"),
+                                  "subset_1_delaunay", 
+                                  "subset_1_train"),
                         type_name = "delaunay", 
                         counties_subset = all_counties[1:13], 
                         number_counties = 1, 
@@ -1701,9 +1656,16 @@ plot_mase_I <- function(mase_overview,
                                            "Delaunay", 
                                            "Train"), 
                         lag = "lag_1") {
-  g <- ggplot(mase_overview %>% 
-                filter(type %in% types, 
-                       CountyName %in% counties_subset), 
+  # filter current considered network 
+  mase_overview_df <- mase_overview %>% 
+    filter(type %in% types, 
+           CountyName %in% counties_subset) 
+  # create factor type 
+  mase_overview_df$type <- factor(mase_overview_df$type, 
+                                  levels = types)
+  
+  
+  g <- ggplot(mase_overview_df, 
               aes(x = time, 
                   y = mase, 
                   color = type)) +
@@ -1739,12 +1701,13 @@ plot_mase_II <- function(mase_overview,
                          counties_subset,
                          number_counties, 
                          lag = "lag_1", 
-                         types = c("subset_1_dnn", 
+                         type_name = "knn", 
+                         types = c("ARIMA", 
                                    "subset_1_knn", 
-                                   "subset_1_queen", 
-                                   "subset_1_eco_hub", 
+                                   "subset_1_dnn", 
                                    "subset_1_complete", 
-                                   "ARIMA"),
+                                   "subset_1_queen", 
+                                   "subset_1_eco_hub"),
                          color_types = c("ARIMA" = "#3A3B3C", 
                                          "subset_1_knn" = "#F8766D", 
                                          "subset_1_dnn" = "#D89000", 
@@ -1754,7 +1717,7 @@ plot_mase_II <- function(mase_overview,
   plot_mase_I(mase_overview = mase_overview, 
               mase_name = mase_name, 
               types = types,
-              type_name = "knn", 
+              type_name = type_name, 
               counties_subset = counties_subset, 
               number_counties = number_counties, 
               color_types = color_types, 
@@ -1772,12 +1735,12 @@ plot_mase_II <- function(mase_overview,
 # Prediction vs. Fitted ---------------------------------------------------
 plot_predicted_vs_fitted_I <- function(mase_overview, 
                                        mase_name = "restricted", 
-                                       types = c("subset_1_delaunay", 
+                                       types = c("ARIMA", 
                                                  "subset_1_gabriel", 
                                                  "subset_1_relative", 
                                                  "subset_1_soi", 
-                                                 "subset_1_train", 
-                                                 "ARIMA"),
+                                                 "subset_1_delaunay", 
+                                                 "subset_1_train"),
                                        type_name = "delaunay", 
                                        counties_subset = all_counties[1:13], 
                                        number_counties = 1, 
@@ -1794,8 +1757,16 @@ plot_predicted_vs_fitted_I <- function(mase_overview,
                                                           "Delaunay", 
                                                           "Train"), 
                                        lag = "lag_1") {
-  g <- ggplot(mase_overview %>% filter(type %in% types, 
-                                       CountyName %in% counties_subset), 
+  # filter current considered network 
+  mase_overview_df <- mase_overview %>% 
+    filter(type %in% types, 
+           CountyName %in% counties_subset) 
+  # create factor type 
+  mase_overview_df$type <- factor(mase_overview_df$type, 
+                                  levels = types)
+  
+  
+  g <- ggplot(mase_overview_df, 
               aes(x = time, 
                   y = predicted, 
                   color = type)) +
@@ -1839,12 +1810,12 @@ plot_predicted_vs_fitted_II <- function(mase_overview,
                                         counties_subset,
                                         number_counties, 
                                         lag = "lag_1", 
-                                        types = c("subset_1_dnn", 
+                                        types = c("ARIMA", 
                                                   "subset_1_knn", 
-                                                  "subset_1_queen", 
-                                                  "subset_1_eco_hub", 
+                                                  "subset_1_dnn", 
                                                   "subset_1_complete", 
-                                                  "ARIMA"),
+                                                  "subset_1_queen", 
+                                                  "subset_1_eco_hub"),
                                         color_types = c("ARIMA" = "#3A3B3C", 
                                                         "subset_1_knn" = "#F8766D", 
                                                         "subset_1_dnn" = "#D89000", 

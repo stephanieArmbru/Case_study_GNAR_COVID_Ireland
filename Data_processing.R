@@ -309,8 +309,11 @@ COVID_final <- COVID_data_week_smooth %>%
   dplyr::select("CountyName", 
                 "yw", 
                 "weeklyCasesSum", 
+                "weeklyCases", 
                 "weeklyCasesDiff", 
                 "PopulationCensus16") %>% 
+  mutate(weeklyCases_non_lag = weeklyCases) %>% 
+  dplyr::select(-weeklyCases) %>% 
   rename(weeklyCases = weeklyCasesDiff)
 
 # check if all necessary columns include 
@@ -318,21 +321,4 @@ COVID_final %>% colnames()
 # save data set
 write_csv(COVID_final,
           file = "Data/ireland_covid_weekly.csv")
-
-# save 2-lag difference 
-COVID_final_2 <- COVID_data_week_smooth %>% 
-  dplyr::select("CountyName", 
-                "yw", 
-                "weeklyCasesSum", 
-                "weeklyCasesDiff2", 
-                "PopulationCensus16") %>% 
-  rename(weeklyCases = weeklyCasesDiff2)
-
-
-# check if all necessary columns include 
-COVID_final_2 %>% colnames()
-
-# save data set
-write_csv(COVID_final_2,
-          file = "Data/ireland_covid_weekly_2.csv")
 

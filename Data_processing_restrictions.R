@@ -14,7 +14,7 @@ library(tidyverse)
 library(magrittr) # for pipping 
 library(xtable) # for tables 
 library(spdep) # for neighbourhood construction 
-library(expp)
+# library(expp)
 library(rlist)
 library(ade4) # igraph to neighbourhood list object
 library(Hmisc) # for weighted variance 
@@ -207,7 +207,8 @@ for  (i in seq(1, 5)) {
 
 lapply(datasets_list, FUN = nrow)
 
-datasets_plot <- do.call(rbind.data.frame, datasets_plot_list) %>% 
+datasets_plot <- do.call(rbind.data.frame, 
+                         datasets_plot_list) %>% 
   gather("county", "weeklyCases", -c(phase, yw))
 
 # plot restriction phases 
@@ -338,7 +339,8 @@ rownames(data_restrictive_NA) <- seq.Date(min(times_restrictive),
                                           by="week")
 
 # which dates are missing 
-setdiff(rownames(data_restrictive_NA), rownames(data_restrictive))
+setdiff(rownames(data_restrictive_NA), 
+        rownames(data_restrictive))
 
 # predicted dates
 rownames(data_restrictive) %>% tail(5)
@@ -380,6 +382,19 @@ datasets_list_coarse <- list("restrictive" = data_restrictive_NA %>%
 data_plot <- COVID_weekly_data %>% 
   mutate(coarse_phase = ifelse(phase == 1 | phase == 3, 0, 1))
 
+primary_scale_factor <- data_plot$weeklyCases %>% 
+  range() %>% 
+  abs() %>% 
+  sum()
+
+secondary_scale_factor <- data_plot$weeklyCases_non_lag %>% 
+  range() %>% 
+  abs() %>% 
+  sum()
+
+scale_factor <- primary_scale_factor / secondary_scale_factor
+
+
 
 # plot restriction phases 
 g <- ggplot() +
@@ -387,7 +402,13 @@ g <- ggplot() +
             aes(x = date, 
                 y = -550,
                 color = strain), 
-            size = 5) +
+            size = 5)  +
+  geom_line(data = data_plot, 
+            aes(x = yw, 
+                y = weeklyCases_non_lag * scale_factor, 
+                group = CountyName), 
+            color = "#2a2a2a", 
+            linetype = "dashed") +
   geom_line(data = data_plot, 
             aes(x = yw, 
                 y = weeklyCases, 
@@ -396,6 +417,10 @@ g <- ggplot() +
                   as.factor())) +
   xlab("Time") +
   ylab("COVID-19 ID") + 
+  scale_y_continuous(
+    sec.axis = sec_axis(~ . * secondary_scale_factor, 
+                        name = "COVID-19 incidence (grey dashed)")
+  ) +
   scale_color_manual(values = c("Original" = "#E5E4E2", 
                                "Alpha" = "#D3D3D3", 
                                "Delta" = "#C0C0C0", 
@@ -407,8 +432,6 @@ g <- ggplot() +
         plot.margin = unit(c(1, 1, 1, 1), "cm"), 
         panel.grid = element_blank())
 
-
-  
 ggsave("Figures/Visualisation/covid_id_pandemic_phases.pdf", 
        plot = g, 
        width = 25, height = 14, unit = "cm")

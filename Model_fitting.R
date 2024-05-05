@@ -39,10 +39,40 @@ options(warn = -1)
 # set ggplot theme 
 theme_set(theme_bw(base_size = 16))
 
-# Pandemic situations -----------------------------------------------------
+
+# Data --------------------------------------------------------------------
 load(file = "Data/RObjects/data_subsets_pandemic_situations.RData")
+# weekly data
+COVID_weekly_data <- read_csv(file = "Data/ireland_covid_weekly.csv", 
+                              show_col_types = FALSE)
 
 all_counties <- colnames(datasets_list_coarse[[1]])
+
+# Data formatting ---------------------------------------------------------
+# format data subsets as data frame with time column 
+# data set 1: restricted 
+data_restricted <- datasets_list_coarse$restrictive %>% 
+  as.data.frame() %>% 
+  mutate(time = rownames(datasets_list_coarse$restrictive) %>% as.Date())
+
+data_restricted_MORAN <- datasets_list_coarse$restrictive %>% 
+  as.data.frame() %>% 
+  mutate(yw = rownames(datasets_list_coarse$restrictive)) %>% 
+  gather("CountyName", "weeklyCases", -c(yw)) %>% 
+  na.omit()
+
+# data set 2: unrestricted 
+data_free <- datasets_list_coarse$free %>% 
+  as.data.frame() %>% 
+  mutate(time = rownames(datasets_list_coarse$free)  %>% as.Date())
+
+
+data_free_MORAN <- datasets_list_coarse$free %>% 
+  as.data.frame() %>% 
+  mutate(yw = rownames(datasets_list_coarse$free)) %>% 
+  gather("CountyName", "weeklyCases", -c(yw)) %>% 
+  na.omit()
+
 
 # ARIMA benchmark ---------------------------------------------------------
 arima_results_list <- lapply(datasets_list_coarse, FUN = function(i) {
@@ -410,16 +440,325 @@ knn_21_igraph<- neighborsDataFrame(nb = knn_21) %>%
 knn_21_gnar <- knn_21_igraph %>% 
   igraphtoGNAR()
 
-# Data formatting ---------------------------------------------------------
-# format data subsets as data frame with time column 
-data_1 <- datasets_list_coarse[[1]] %>% 
-  as.data.frame() %>% 
-  mutate(time = rownames(datasets_list_coarse[[1]]) %>% as.Date())
 
-data_2 <- datasets_list_coarse[[2]] %>% 
-  as.data.frame() %>% 
-  mutate(time = rownames(datasets_list_coarse[[2]])  %>% as.Date())
+# Network characteristics  ------------------------------------------------
+# Queen
+graph_queen <- network_characteristics(covid_net_queen_igraph, 
+                                       "queen")
+# Eco hub 
+graph_eco_hub <- network_characteristics(covid_net_eco_hubs_igraph, 
+                                         "eco_hub")
+# Railway-based 
+graph_train <- network_characteristics(covid_net_train_igraph, 
+                                       "train")
+# Delaunay triangulation
+graph_delaunay <- network_characteristics(covid_net_delaunay_igraph, 
+                                          "delaunay")
+# Gabriel 
+graph_gabriel <- network_characteristics(covid_net_gabriel_igraph, 
+                                         "gabriel")
+# Relative 
+graph_relative <- network_characteristics(covid_net_relative_igraph, 
+                                          "relative")
+# Sphere of influence 
+graph_soi <- network_characteristics(covid_net_soi_igraph, 
+                                     "soi")
 
+# KNN k = 7 
+graph_knn_7 <- network_characteristics(knn_7_igraph, 
+                                       "knn (k = 7)")
+# KNN k = 21
+graph_knn_21 <- network_characteristics(knn_21_igraph, 
+                                        "knn (k = 21)")
+
+
+# DNN d = 200
+graph_dnn_200 <- network_characteristics(dnn_200_igraph, 
+                                         "dnn (d = 200)")
+# DNN d = 325
+graph_dnn_325 <- network_characteristics(dnn_325_igraph, 
+                                         "dnn (d = 325)")
+
+# complete network
+graph_complete <- network_characteristics(complete_net_igraph, 
+                                          "complete")
+
+
+# compare all networks (but Complete)
+graph_overview <- cbind("metric" = graph_queen$metric,
+                        "train" = graph_train$train %>% round(2), 
+                        "queen" = graph_queen$queen %>% round(2), 
+                        "eco_hub"= graph_eco_hub$eco_hub %>% round(2),
+                        
+                        
+                        "knn (k = 7)" = graph_knn_7$knn %>% round(2), 
+                        "knn (k = 21)" = graph_knn_21$knn %>% round(2), 
+                        "dnn (d = 200)" = graph_dnn_200$dnn %>% round(2), 
+                        "dnn (d = 325)" = graph_dnn_325$dnn %>% round(2), 
+  
+                        "delauany" = graph_delaunay$delaunay %>% round(2), 
+                        "gabriel" = graph_gabriel$gabriel %>% round(2), 
+                        "soi" = graph_soi$soi %>% round(2),                         
+                        "relative" = graph_relative$relative %>% round(2)
+)
+
+strCaption <- "Overview of network characteristics for the \\textbf{Railway-based},
+\\textbf{Queen's contiguity}, \\textbf{Economic (Eco.) hub},  \\textbf{KNN} ($k = 7$ and $k = 21$),
+\\textbf{DNN} ($d = 200$ and $d = 325$), \\textbf{Delaunay triangulation}, 
+\\textbf{Gabriel}, \\textbf{SOI}, \\textbf{Relative neighbourhood (Rel. neigh.)} network; 
+including average (av.) degree, average (av.) shortest path length (SPL), 
+average (av.) local clustering (clust.). The average shortest path length and average local clustering 
+coefficient for a Bernoulli Random Graph B(n, m) for each network is also reported."
+print(xtable(graph_overview[c(1, 3, 5, 8, 9), ],
+             digits=2,
+             caption=strCaption,
+             label="tab:network_char", 
+             align = c("", "l", "|", "r", "r", "r", "r", "r", "r", "r", "r", "r", "r", "r")),
+      include.rownames=FALSE, 
+      include.colnames=FALSE, 
+      caption.placement="bottom",
+      hline.after=NULL,
+      add.to.row = list(pos = list(-1,
+                                   nrow(graph_overview[c(1, 3, 5, 8, 9), ])),
+                        command = c(paste("\\toprule \n",
+                                          " Metric & Railway & Queen & Eco. hub 
+                                          & KNN (k = 7) & KNN (k = 21) & 
+                                          DNN (d = 200) & DNN (d = 325) & 
+                                          Delaunay & Gabriel &
+                                           SOI & Rel. neigh.  \\\\\n",
+                                          "\\midrule \n"),
+                                    "\\bottomrule \n")
+      )
+)
+
+
+# visualize density against clustering 
+
+graph_df <- rbind("delauany" = graph_delaunay$delaunay %>% round(2), 
+                  "gabriel" = graph_gabriel$gabriel %>% round(2), 
+                  "soi" = graph_soi$soi %>% round(2),                         
+                  "relative" = graph_relative$relative %>% round(2), 
+                  "queen" = graph_queen$queen %>% round(2), 
+                  "eco_hub"= graph_eco_hub$eco_hub %>% round(2), 
+                  "train" = graph_train$train %>% round(2), 
+                  
+                  "knn (k = 7)" = graph_knn_7$knn %>% round(2), 
+                  "knn (k = 21)" = graph_knn_21$knn %>% round(2), 
+                  "dnn (d = 200)" = graph_dnn_200$dnn %>% round(2), 
+                  "dnn (d = 325)" = graph_dnn_325$dnn %>% round(2), 
+                  
+                  "complete" = graph_complete$complete %>% round(2)
+) %>% 
+  as.data.frame()
+
+colnames(graph_df) <- graph_queen$metric
+graph_df$network <-  factor(as.vector(rownames(graph_df)), 
+                            levels = c("knn (k = 7)", 
+                                       "knn (k = 21)",
+                                       "dnn (d = 200)",
+                                       "dnn (d = 325)",
+                                       "complete",
+                                       "queen",
+                                       "eco_hub",
+                                       "gabriel",
+                                       "relative",
+                                       "soi",
+                                       "delaunay",
+                                       "train"
+  ))
+
+# visualize average density against clustering
+g <- ggplot(graph_df, 
+       aes(x = density, 
+           y = `av. local clust.`, 
+           color = network)) +
+  geom_point(size = 3) +
+  labs(x = "Network density", 
+       y = "Average local clustering") +
+  scale_color_manual(values = c("knn (k = 7)" = "#F8766D", 
+                                "knn (k = 21)" = "#F8996d", 
+                                "dnn (d = 200)" = "#D89000", 
+                                "dnn (d = 325)" = "#D86c00", 
+                                
+                                "complete" = "#A3A500", 
+                                
+                                "queen" = "#39B600", 
+                                "eco_hub" = "#00BF7D", 
+                                "gabriel" = "#00BFC4", 
+                                "relative" = "#00B0F6", 
+                                "soi" = "#9590FF", 
+                                "delaunay" = "#E76BF3", 
+                                "train" = "#FF62BC"), 
+                     labels = c("KNN (k = 7)",
+                                "KNN (k = 21)",
+                                "DNN (d = 200)",
+                                "DNN (d = 325)",
+                                
+                                "Complete",
+                                
+                                "Queen",
+                                "Eco hub",
+                                "Delaunay",
+                                "Gabriel",
+                                "Relative",
+                                "SOI",
+                                "Delaunay",
+                                "Train"
+                                
+                     ), 
+                     name = "Network") +
+  theme(legend.position = "bottom")
+
+ggsave(file = "Figures/Networks/density_clustering.pdf",  
+       plot = g, 
+       width = 25, 
+       height = 15, 
+       unit = "cm")
+
+
+# Moran's I permutation test ----------------------------------------------
+# spatial autocorrelation measured as Moran's I for each network
+# Queen 
+moran_queen <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                        g = covid_net_queen_igraph, 
+                                        name = "queen")
+moran_queen_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
+                                                   g = covid_net_queen_igraph, 
+                                                   name = "queen_restricted")
+moran_queen_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
+                                                     g = covid_net_queen_igraph, 
+                                                     name = "queen_unrestricted")
+
+
+# Economic hubs 
+moran_eco_hubs <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                           g = covid_net_eco_hubs_igraph, 
+                                           county_index = county_index_eco_hubs, 
+                                           name = "eco_hubs")
+moran_eco_hubs_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
+                                                      g = covid_net_eco_hubs_igraph, 
+                                                      county_index = county_index_eco_hubs, 
+                                                      name = "eco_hubs_restricted")
+moran_eco_hubs_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
+                                                        g = covid_net_eco_hubs_igraph, 
+                                                        county_index = county_index_eco_hubs, 
+                                                        name = "eco_hubs_unrestricted")
+
+
+# Railway-based
+moran_train <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                        g = covid_net_train_igraph, 
+                                        county_index = county_index_train, 
+                                        name = "train") 
+moran_train_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
+                                                   g = covid_net_train_igraph, 
+                                                   county_index = county_index_train, 
+                                                   name = "train_restricted")
+moran_train_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
+                                                     g = covid_net_train_igraph, 
+                                                     county_index = county_index_train, 
+                                                     name = "train_unrestricted")
+
+
+# Delaunay 
+moran_delaunay <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                           g = covid_net_delaunay_igraph, 
+                                           name = "delaunay")
+moran_delaunay_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
+                                                      g = covid_net_delaunay_igraph, 
+                                                      name = "delaunay_restricted")
+moran_delaunay_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
+                                                        g = covid_net_delaunay_igraph, 
+                                                        name = "delaunay_unrestricted")
+
+
+# Gabriel 
+moran_gabriel <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                          g = covid_net_gabriel_igraph, 
+                                          name = "gabriel")
+moran_gabriel_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
+                                                     g = covid_net_gabriel_igraph, 
+                                                     name = "gabriel_restricted")
+moran_gabriel_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
+                                                       g = covid_net_gabriel_igraph, 
+                                                       name = "gabriel_unrestricted")
+
+
+# Relative 
+moran_relative <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                           g = covid_net_relative_igraph, 
+                                           name = "relative")
+moran_relative_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
+                                                      g = covid_net_relative_igraph, 
+                                                      name = "relative_restricted")
+moran_relative_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
+                                                        g = covid_net_relative_igraph, 
+                                                        name = "relative_unrestricted")
+
+# SOI
+moran_soi <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                      g = covid_net_soi_igraph, 
+                                      name = "soi")
+moran_soi_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
+                                                 g = covid_net_soi_igraph, 
+                                                 name = "soi_restricted")
+moran_soi_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
+                                                   g = covid_net_soi_igraph, 
+                                                   name = "soi_unrestricted")
+
+# Complete 
+moran_complete <- moran_I_permutation_test(data = COVID_weekly_data, 
+                                           g = complete_net_igraph, 
+                                           name = "complete")
+
+# KNN
+moran_knn_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
+                                                 g = knn_7_igraph, 
+                                                 name = "knn_7")
+moran_knn_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
+                                                   g = knn_21_igraph, 
+                                                   name = "knn_21")
+
+# DNN
+moran_dnn_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
+                                                 g = dnn_200_igraph, 
+                                                 name = "dnn_200")
+moran_dnn_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
+                                                   g = dnn_325_igraph, 
+                                                   name = "dnn_325")
+
+
+# Overview of test statistics
+morans_per_test <- c(moran_train,
+                     moran_queen,
+                     moran_eco_hubs,
+                     moran_delaunay,
+                     moran_gabriel,
+                     moran_soi,
+                     moran_relative,
+                     moran_complete)
+
+morans_per_test_restricted <- c(moran_train_restricted, 
+                                moran_queen_restricted, 
+                                moran_eco_hubs_restricted, 
+                                moran_knn_restricted, 
+                                moran_dnn_restricted, 
+                                moran_delaunay_restricted, 
+                                moran_gabriel_restricted, 
+                                moran_soi_restricted, 
+                                moran_relative_restricted) %>% 
+  round(3)
+
+morans_per_test_unrestricted <- c(moran_train_unrestricted, 
+                                  moran_queen_unrestricted, 
+                                  moran_eco_hubs_unrestricted, 
+                                  moran_knn_unrestricted, 
+                                  moran_dnn_unrestricted, 
+                                  moran_delaunay_unrestricted, 
+                                  moran_gabriel_unrestricted, 
+                                  moran_soi_unrestricted, 
+                                  moran_relative_unrestricted) %>% 
+  round(3)
 
 
 # MASE for restrictive ----------------------------------------------------
@@ -535,61 +874,61 @@ mod_1_complete <- fit_and_predict(alpha = 5,
 mase_1_queen <- compute_MASE(model = mod_1_queen, 
                              network_name = "subset_1_queen", 
                              n_ahead = 5, 
-                             data_df = data_1, 
+                             data_df = data_restricted, 
                              counties = all_counties)
 
 mase_1_eco_hub <- compute_MASE(model = mod_1_eco_hub, 
                                network_name = "subset_1_eco_hub", 
                                n_ahead = 5, 
-                               data_df = data_1, 
+                               data_df = data_restricted, 
                                counties = all_counties)
 
 mase_1_train <- compute_MASE(model = mod_1_train, 
                              network_name = "subset_1_train", 
                              n_ahead = 5, 
-                             data_df = data_1, 
+                             data_df = data_restricted, 
                              counties = all_counties)
 
 mase_1_delaunay <- compute_MASE(model = mod_1_delaunay, 
                                 network_name = "subset_1_delaunay", 
                                 n_ahead = 5, 
-                                data_df = data_1, 
+                                data_df = data_restricted, 
                                 counties = all_counties)
 
 mase_1_gabriel <- compute_MASE(model = mod_1_gabriel, 
                                network_name = "subset_1_gabriel", 
                                n_ahead = 5, 
-                               data_df = data_1, 
+                               data_df = data_restricted, 
                                counties = all_counties)
 
 mase_1_relative <- compute_MASE(model = mod_1_relative, 
                                 network_name = "subset_1_relative", 
                                 n_ahead = 5, 
-                                data_df = data_1, 
+                                data_df = data_restricted, 
                                 counties = all_counties)
 
 mase_1_soi <- compute_MASE(model = mod_1_soi, 
                            network_name = "subset_1_soi", 
                            n_ahead = 5, 
-                           data_df = data_1, 
+                           data_df = data_restricted, 
                            counties = all_counties)
 
 mase_1_knn <- compute_MASE(model = mod_1_knn, 
                            network_name = "subset_1_knn", 
                            n_ahead = 5, 
-                           data_df = data_1, 
+                           data_df = data_restricted, 
                            counties = all_counties)
 
 mase_1_dnn <- compute_MASE(model = mod_1_dnn, 
                            network_name = "subset_1_dnn", 
                            n_ahead = 5, 
-                           data_df = data_1, 
+                           data_df = data_restricted, 
                            counties = all_counties)
 
 mase_1_complete <- compute_MASE(model = mod_1_complete, 
                                 network_name = "subset_1_complete", 
                                 n_ahead = 5, 
-                                data_df = data_1, 
+                                data_df = data_restricted, 
                                 counties = all_counties)
 
 
@@ -628,6 +967,8 @@ m_1_knn_II <- plot_mase_II(mase_overview = mase_1_overview,
 m_1_knn_III <- plot_mase_II(mase_overview = mase_1_overview, 
                             counties_subset = all_counties[19:26],
                             number_counties = 3)
+
+
 
 # Predicted vs. fitted for restricted -------------------------------------
 g_1_delaunay_I <- plot_predicted_vs_fitted_I(mase_overview = mase_1_overview, 
@@ -764,61 +1105,61 @@ mod_2_complete <- fit_and_predict(alpha = 5,
 mase_2_queen <- compute_MASE(model = mod_2_queen, 
                              network_name = "subset_2_queen", 
                              n_ahead = 5, 
-                             data_df = data_2, 
+                             data_df = data_free, 
                              counties = all_counties)
 
 mase_2_eco_hub <- compute_MASE(model = mod_2_eco_hub, 
                                network_name = "subset_2_eco_hub", 
                                n_ahead = 5, 
-                               data_df = data_2, 
+                               data_df = data_free, 
                                counties = all_counties)
 
 mase_2_train <- compute_MASE(model = mod_2_train, 
                              network_name = "subset_2_train", 
                              n_ahead = 5, 
-                             data_df = data_2,
+                             data_df = data_free,
                              counties = all_counties)
 
 mase_2_delaunay <- compute_MASE(model = mod_2_delaunay, 
                                 network_name = "subset_2_delaunay", 
                                 n_ahead = 5, 
-                                data_df = data_2, 
+                                data_df = data_free, 
                                 counties = all_counties)
 
 mase_2_gabriel <- compute_MASE(model = mod_2_gabriel, 
                                network_name = "subset_2_gabriel", 
                                n_ahead = 5, 
-                               data_df = data_2, 
+                               data_df = data_free, 
                                counties = all_counties)
 
 mase_2_relative <- compute_MASE(model = mod_2_relative, 
                                 network_name = "subset_2_relative", 
                                 n_ahead = 5, 
-                                data_df = data_2, 
+                                data_df = data_free, 
                                 counties = all_counties)
 
 mase_2_soi <- compute_MASE(model = mod_2_soi, 
                            network_name = "subset_2_soi", 
                            n_ahead = 5, 
-                           data_df = data_2, 
+                           data_df = data_free, 
                            counties = all_counties)
 
 mase_2_knn <- compute_MASE(model = mod_2_knn, 
                            network_name = "subset_2_knn", 
                            n_ahead = 5, 
-                           data_df = data_2, 
+                           data_df = data_free, 
                            counties = all_counties)
 
 mase_2_dnn <- compute_MASE(model = mod_2_dnn, 
                            network_name = "subset_2_dnn", 
                            n_ahead = 5, 
-                           data_df = data_2, 
+                           data_df = data_free, 
                            counties = all_counties)
 
 mase_2_complete <- compute_MASE(model = mod_2_complete, 
                                 network_name = "subset_2_complete", 
                                 n_ahead = 5, 
-                                data_df = data_2, 
+                                data_df = data_free, 
                                 counties = all_counties)
 
 
@@ -843,12 +1184,12 @@ m_2_delaunay_I <- plot_mase_I(mase_overview = mase_2_overview,
                               mase_name = "free", 
                               counties_subset = all_counties[1:9],
                               number_counties = 1, 
-                              types = c("subset_2_delaunay", 
+                              types = c("ARIMA", 
                                         "subset_2_gabriel", 
                                         "subset_2_relative", 
                                         "subset_2_soi", 
-                                        "subset_2_train", 
-                                        "ARIMA"), 
+                                        "subset_2_delaunay", 
+                                        "subset_2_train"), 
                               color_types = c("ARIMA" = "#3A3B3C", 
                                               "subset_2_gabriel" = "#00BFC4", 
                                               "subset_2_relative" = "#00B0F6", 
@@ -859,12 +1200,12 @@ m_2_delaunay_II <- plot_mase_I(mase_overview = mase_2_overview,
                                mase_name = "free", 
                                counties_subset = all_counties[10:18], 
                                number_counties = 2, 
-                               types = c("subset_2_delaunay", 
+                               types = c("ARIMA", 
                                          "subset_2_gabriel", 
                                          "subset_2_relative", 
                                          "subset_2_soi", 
-                                         "subset_2_train", 
-                                         "ARIMA"), 
+                                         "subset_2_delaunay", 
+                                         "subset_2_train"), 
                                color_types = c("ARIMA" = "#3A3B3C", 
                                                "subset_2_gabriel" = "#00BFC4", 
                                                "subset_2_relative" = "#00B0F6", 
@@ -875,12 +1216,12 @@ m_2_delaunay_III <- plot_mase_I(mase_overview = mase_2_overview,
                                 mase_name = "free", 
                                 counties_subset = all_counties[19:26], 
                                 number_counties = 3, 
-                                types = c("subset_2_delaunay", 
+                                types = c("ARIMA", 
                                           "subset_2_gabriel", 
                                           "subset_2_relative", 
                                           "subset_2_soi", 
-                                          "subset_2_train", 
-                                          "ARIMA"), 
+                                          "subset_2_delaunay", 
+                                          "subset_2_train"), 
                                 color_types = c("ARIMA" = "#3A3B3C", 
                                                 "subset_2_gabriel" = "#00BFC4", 
                                                 "subset_2_relative" = "#00B0F6", 
@@ -892,12 +1233,12 @@ m_2_knn_I <- plot_mase_II(mase_overview = mase_2_overview,
                           mase_name = "free", 
                           counties_subset = all_counties[1:9],
                           number_counties = 1, 
-                          types = c("subset_2_dnn", 
+                          types = c("ARIMA", 
                                     "subset_2_knn", 
-                                    "subset_2_queen", 
-                                    "subset_2_eco_hub", 
+                                    "subset_2_dnn", 
                                     "subset_2_complete", 
-                                    "ARIMA"), 
+                                    "subset_2_queen", 
+                                    "subset_2_eco_hub"), 
                           color_types = c("ARIMA" = "#3A3B3C", 
                                           "subset_2_knn" = "#F8766D", 
                                           "subset_2_dnn" = "#D89000", 
@@ -908,12 +1249,12 @@ m_2_knn_II <- plot_mase_II(mase_overview = mase_2_overview,
                            mase_name = "free", 
                            counties_subset = all_counties[10:18],
                            number_counties = 2, 
-                           types = c("subset_2_dnn", 
+                           types = c("ARIMA", 
                                      "subset_2_knn", 
-                                     "subset_2_queen", 
-                                     "subset_2_eco_hub", 
+                                     "subset_2_dnn", 
                                      "subset_2_complete", 
-                                     "ARIMA"), 
+                                     "subset_2_queen", 
+                                     "subset_2_eco_hub"), 
                            color_types = c("ARIMA" = "#3A3B3C", 
                                            "subset_2_knn" = "#F8766D", 
                                            "subset_2_dnn" = "#D89000", 
@@ -924,12 +1265,12 @@ m_2_knn_III <- plot_mase_II(mase_overview = mase_2_overview,
                             mase_name = "free", 
                             counties_subset = all_counties[19:26],
                             number_counties = 3, 
-                            types = c("subset_2_dnn", 
+                            types = c("ARIMA", 
                                       "subset_2_knn", 
-                                      "subset_2_queen", 
-                                      "subset_2_eco_hub", 
+                                      "subset_2_dnn", 
                                       "subset_2_complete", 
-                                      "ARIMA"), 
+                                      "subset_2_queen", 
+                                      "subset_2_eco_hub"), 
                             color_types = c("ARIMA" = "#3A3B3C", 
                                             "subset_2_knn" = "#F8766D", 
                                             "subset_2_dnn" = "#D89000", 
@@ -1200,7 +1541,7 @@ g <- ggplot(data = density_BIC,
        aes(x = density, 
            y = BIC, 
            label = Name)) +
-  geom_point() +
+  geom_point(size = 3) +
   geom_line(linetype = "dashed") +
   geom_text_repel(check_overlap = T, nudge_y = 0.1, angle = 0) +
   facet_grid(Data ~., scales="free") +
@@ -1332,10 +1673,10 @@ AC_free <- autocorrelation(res = residuals_free)
 
 # Spatial correlation -----------------------------------------------------
 # Moran's I on residuals 
-data_1_long <- data_1 %>% 
+data_restricted_long <- data_restricted %>% 
   gather("CountyName", "cases", -time)
 
-SC_orig_restrictive <- moran_I_permutation_test(data = data_1_long %>% na.omit(), 
+SC_orig_restrictive <- moran_I_permutation_test(data = data_restricted_long %>% na.omit(), 
                          g = covid_net_queen_igraph, 
                          name = "queen_restricted", 
                          time_col = "time", 
@@ -1348,10 +1689,10 @@ SC_restrictive <- moran_I_permutation_test(data = residuals_restrictive %>% na.o
                          cases_col = "residuals")
 
 
-data_2_long <- data_2 %>% 
+data_free_long <- data_free %>% 
   gather("CountyName", "cases", -time)
 
-SC_orig_restrictive <- moran_I_permutation_test(data = data_2_long %>% na.omit(), 
+SC_orig_restrictive <- moran_I_permutation_test(data = data_free_long %>% na.omit(), 
                                                 g = knn_21_igraph, 
                                                 name = "knn_free", 
                                                 time_col = "time", 
@@ -1364,6 +1705,7 @@ SC_free <- moran_I_permutation_test(data = residuals_free %>% na.omit(),
                                     cases_col = "residuals")
 
 # Change in coefficients --------------------------------------------------
+# change in coefficients for optimal GNAR model 
 parameter_development_phases(net_list = list(covid_net_queen_gnar, 
                                              knn_21_gnar), 
                              alpha_vector = c(5, 5),
@@ -1373,12 +1715,74 @@ parameter_development_phases(net_list = list(covid_net_queen_gnar,
                              globalalpha = TRUE,
                              old = TRUE)
 
-param_knn <- parameter_development_phases(data_list = datasets_list_coarse , 
-                                          net_list = list(knn_21_gnar, 
-                                                          knn_21_gnar), 
-                                          alpha = c(5, 5), 
-                                          beta = list(c(1, 1, 1, 1, 0),
-                                                      c(1, 1, 1, 1, 0)), 
-                                          globalalpha = TRUE, 
-                                          old = TRUE, 
-                                          name = "phases_same_model")
+parameter_development_phases(data_list = datasets_list_coarse , 
+                             net_list = list(knn_21_gnar, 
+                                             knn_21_gnar), 
+                             alpha = c(5, 5), 
+                             beta = list(c(1, 1, 1, 1, 0),
+                                         c(1, 1, 1, 1, 0)), 
+                             globalalpha = TRUE, 
+                             old = TRUE, 
+                             name = "phases_same_model")
+
+
+
+# MASE for border counties ------------------------------------------------
+border_counties <- c("Leitrim", 
+                     "Donegal", 
+                     "Cavan", 
+                     "Monaghan", 
+                     "Louth")
+# restricted phase 
+m_1_border <- plot_mase_I(mase_overview = mase_1_overview, 
+                              counties_subset = border_counties,
+                              number_counties = "1", 
+                              type_name = "border")
+m_1_knn_III <- plot_mase_II(mase_overview = mase_1_overview, 
+                            counties_subset = border_counties,
+                            number_counties = "2", 
+                            type_name = "border")
+
+# unrestricted phase 
+m_2_delaunay_I <- plot_mase_I(mase_overview = mase_2_overview, 
+                              counties_subset = border_counties,
+                              number_counties = "1", 
+                              type_name = "border", 
+                              mase_name = "free", 
+                              types = c("ARIMA", 
+                                        "subset_2_gabriel", 
+                                        "subset_2_relative", 
+                                        "subset_2_soi", 
+                                        "subset_2_delaunay", 
+                                        "subset_2_train"), 
+                              color_types = c("ARIMA" = "#3A3B3C", 
+                                              "subset_2_gabriel" = "#00BFC4", 
+                                              "subset_2_relative" = "#00B0F6", 
+                                              "subset_2_soi" = "#9590FF", 
+                                              "subset_2_delaunay" = "#E76BF3", 
+                                              "subset_2_train" = "#FF62BC"))
+m_2_knn_III <- plot_mase_II(mase_overview = mase_2_overview, 
+                            counties_subset = border_counties,
+                            number_counties = "2", 
+                            type_name = "border", 
+                            mase_name = "free", 
+                            types = c("ARIMA", 
+                                      "subset_2_knn", 
+                                      "subset_2_dnn", 
+                                      "subset_2_complete", 
+                                      "subset_2_queen", 
+                                      "subset_2_eco_hub"), 
+                            color_types = c("ARIMA" = "#3A3B3C", 
+                                            "subset_2_knn" = "#F8766D", 
+                                            "subset_2_dnn" = "#D89000", 
+                                            "subset_2_complete" = "#A3A500", 
+                                            "subset_2_queen" = "#39B600", 
+                                            "subset_2_eco_hub" = "#00BF7D"))
+
+
+
+
+
+
+
+

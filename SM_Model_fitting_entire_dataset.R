@@ -1509,6 +1509,9 @@ mase_overview <- rbind.data.frame(mase_queen,
 
 
 
+mase_overview <- mase_overview %>% 
+  filter(CountyName %in% counties[1:9])
+
 
 # plot MASE for counties: Dublin, Wicklow, Kerry, Donegal
 ggplot(mase_overview, 
