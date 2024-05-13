@@ -5,47 +5,6 @@ source("GNAR/GNARdesign.R")
 source("GNAR/GNARfit.R")
 source("GNAR/NofNeighbours.R")
 
-
-squash_axis <- function(from, to, factor) { 
-  # A transformation function that squashes the range of [from, to] by factor on a given axis 
-  
-  # Args:
-  #   from: left end of the axis
-  #   to: right end of the axis
-  #   factor: the compression factor of the range [from, to]
-  #
-  # Returns:
-  #   A transformation called "squash_axis", which is capsulated by trans_new() function
-  
-  trans <- function(x) {    
-    # get indices for the relevant regions
-    isq <- x > from & x < to
-    ito <- x >= to
-    
-    # apply transformation
-    x[isq] <- from + (x[isq] - from)/factor
-    x[ito] <- from + (to - from)/factor + (x[ito] - to)
-    
-    return(x)
-  }
-  
-  inv <- function(x) {
-    
-    # get indices for the relevant regions
-    isq <- x > from & x < from + (to - from)/factor
-    ito <- x >= from + (to - from)/factor
-    
-    # apply transformation
-    x[isq] <- from + (x[isq] - from) * factor
-    x[ito] <- to + (x[ito] - (from + (to - from)/factor))
-    
-    return(x)
-  }
-  
-  # return the transformation
-  return(trans_new("squash_axis", trans, inv))
-}
-
 # Dataframe functions -----------------------------------------------------
 # find maximum value for each column
 colMax <- function(data) {
@@ -271,13 +230,6 @@ moran_I_permutation_test <- function(data = COVID_weekly_data,
                                 alternative = "two.sided") %>% 
       list.cbind()
     
-    # compute Moran's I similar metric based on Kendall's correlation coefficient 
-    # for (county in county_distMatrix) {
-    #   number_cases_date_county <- number_cases_date[]
-    #   
-    #   
-    # }
-    
     moran_list[[date]] <- cbind(orig_result, 
                                 "lower_ci" = quantile_morans_I[1], 
                                 "upper_ci" = quantile_morans_I[3], 
@@ -333,6 +285,129 @@ moran_I_permutation_test <- function(data = COVID_weekly_data,
   return(morans_p)
 }
 
+# Knox Mantel test 
+rank_moran_I_permutation_test <- function(data = COVID_weekly_data,
+                                      g, 
+                                      county_index = NULL, 
+                                      name, 
+                                      time_col = "yw", 
+                                      cases_col = "weeklyCases") {
+  
+  # compute shortest path length for each vertex pair
+  distMatrix <- exp(shortest.paths(g, v=V(g), to=V(g)) * (-1))
+  
+  # if igraph does not have county names for vertices 
+  if (!is.null(county_index)) {
+    # assign names 
+    county_ordering <- match(seq(1, 26), 
+                             county_index$index)
+    county_names <- county_index[county_ordering, ]$CountyName
+    
+    rownames(distMatrix) <- county_names
+    colnames(distMatrix) <- county_names
+  }
+  # assign county names
+  county_distMatrix <- distMatrix %>% rownames()
+  
+  # loop through all dates
+  dates <- data[[time_col]] %>% 
+    unique() %>% 
+    as.character()
+  
+  spearman_corr_list <- list()
+  # for each date, compute Moran's I
+  for (date in dates[-1]) {
+    cases_date <- data[data[[time_col]] == date, ]
+    county_df <- cases_date$CountyName
+    ordering <- match(county_distMatrix, county_df)
+    
+    
+    rank_cases_date <- cases_date[ordering, ][[cases_col]] %>% 
+      rank()
+    names(rank_cases_date) <- county_distMatrix
+    
+    spearman_corr_values <- array(NA, dim = 100)
+    for (r in seq(1, 100)) {
+      set.seed(r)
+      # permutate case numbers 
+      permutate <- sample(seq(1, 26), 
+                          size = 26, 
+                          replace = FALSE) 
+      
+      # compute Moran's I for permutated cases 
+      spearman_corr_values[r] <- ape::Moran.I(rank_cases_date[permutate], 
+                                         distMatrix, 
+                                         scaled = FALSE, 
+                                         na.rm = FALSE,
+                                         alternative = "two.sided")$observed
+    }
+    
+    quantile_spearman_corr <- quantile(spearman_corr_values, 
+                                  probs = c(0.025, 0.5, 0.975)) %>% 
+      unname()
+    
+    orig_result <- ape::Moran.I(rank_cases_date, 
+                                distMatrix, 
+                                scaled = FALSE, 
+                                na.rm = FALSE,
+                                alternative = "two.sided") %>% 
+      list.cbind()
+    
+    spearman_corr_list[[date]] <- cbind(orig_result, 
+                                "lower_ci" = quantile_spearman_corr[1], 
+                                "upper_ci" = quantile_spearman_corr[3], 
+                                "median" = quantile_spearman_corr[2])
+  }
+  
+  
+  spearman_corr_df <- spearman_corr_list %>% list.rbind() %>% as.data.frame()
+  spearman_corr_df$dates <- dates[-1] %>% as.Date()
+  
+  # p-value 
+  spearman_corr_p <- spearman_corr_df %>% 
+    mutate(p = ifelse(observed > upper_ci | observed < lower_ci, 1, 0)) %>% 
+    pull(p) %>% 
+    mean()
+  
+  # Visualize and save plot 
+  ggplot(spearman_corr_df, 
+         aes(x = dates, 
+             y = observed)) +
+    geom_line() +
+    xlab("Time") +
+    ylab("Rank-based Moran's I") +
+    geom_vline(aes(xintercept = as.Date("27.02.2020",
+                                        format = "%d.%m.%Y"), 
+                   color = "Initial lockdown")) +
+    geom_vline(aes(xintercept = as.Date("18.08.2020",
+                                        format = "%d.%m.%Y"), 
+                   color = "County-specific restrictions")) +
+    geom_vline(aes(xintercept = as.Date("26.12.2020", 
+                                        format = "%d.%m.%Y"), 
+                   color = "Level-5 lockdown")) +
+    geom_vline(aes(xintercept = as.Date("10.05.2021",
+                                        format = "%d.%m.%Y"), 
+                   color = "Inter-County travel")) +
+    geom_vline(aes(xintercept = as.Date("06.03.2022",
+                                        format = "%d.%m.%Y"), 
+                   color = "End")) +
+    geom_line(aes(x = dates, 
+                  y = lower_ci), 
+              linetype = "dashed", color = "#3A3B3C") +
+    geom_line(aes(x = dates, 
+                  y = upper_ci), 
+              linetype = "dashed", color = "#3A3B3C") +
+    geom_line(aes(x = dates, 
+                  y = median), 
+              linetype = "dashed", color = "#3A3B3C") +
+    scale_color_brewer(palette = "Set1") + 
+    theme(legend.position = "None")
+  ggsave(paste0("Figures/RankMoransI/covid_moran_rank_", name, 
+                ".pdf", collapse = ""), 
+         width = 27, height = 14, unit = "cm")
+  
+  return(spearman_corr_p)
+}
 
 # Stationarity ------------------------------------------------------------
 compute_box_cox <- function(i, 
@@ -550,34 +625,25 @@ fit_and_predict <- function(alpha, beta,
 # circle through different alpha and beta order combinations and fit 
 # GNAR models with the function "fit_and_predict" 
 fit_and_predict_for_many <- function(alpha_options = seq(1, 5), 
-                                     beta_options = list(0, 1, 
-                                                         c(1, 0), 
+                                     beta_options = list(0, 1, 2, 
                                                          c(1, 1), 
-                                                         c(2, 0), 
                                                          c(2, 1), 
                                                          c(2, 2), 
-                                                         c(1, 0, 0), 
-                                                         c(1, 1, 0),
                                                          c(1, 1, 1), 
                                                          c(2, 1, 1),
-                                                         c(1, 0, 0, 0), 
-                                                         c(1, 1, 0, 0), 
-                                                         c(1, 1, 1, 0), 
                                                          c(1, 1, 1, 1), 
                                                          c(2, 1, 1, 1),
                                                          c(2, 2, 1, 1),
                                                          c(2, 2, 2, 1), 
-                                                         c(1, 0, 0, 0, 0), 
-                                                         c(1, 1, 0, 0, 0), 
-                                                         c(1, 1, 1, 0, 0), 
-                                                         c(1, 1, 1, 1, 0), 
                                                          c(1, 1, 1, 1, 1),
                                                          c(2, 1, 1, 1, 1), 
                                                          c(2, 2, 1, 1, 1), 
                                                          c(2, 2, 2, 1, 1)
                                      ), # in form of list
                                      globalalpha = c("TRUE", "FALSE"), 
-                                     net, vts = covid_cases,  
+                                     upper_limit = 5, 
+                                     net, 
+                                     vts,  
                                      numeric_vertices = FALSE, 
                                      
                                      # if not NULL, coefficients are computed for 
@@ -600,7 +666,7 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 5),
                                      # if TRUE, the original GNARfit() function is applied
                                      old = FALSE,
                                      
-                                     forecast_window = 10) {
+                                     forecast_window) {
   
   train_window <- dim(vts)[1] - forecast_window
   
@@ -609,11 +675,35 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 5),
                                 beta_options, 
                                 globalalpha)
   
+  model_options$valid <- NA
+  
+  for(i in seq(1, nrow(model_options))) {
+    
+    current_option <- model_options[i, ]
+    
+    model_options[i, ]$valid <-  ifelse(length(current_option$Var2[[1]]) > current_option$Var1 | 
+                                          any(current_option$Var2[[1]] > upper_limit),  
+                                        FALSE, 
+                                        TRUE
+                                      )
+    
+    if(model_options$valid[i]) {
+      model_options[i, ]$Var2[[1]] <- c(current_option$Var2[[1]], 
+                                        rep(0, current_option$Var1 - length(current_option$Var2[[1]])))
+    } else {
+      model_options[i, ]$Var2[[1]] <- NA
+    }
+  }
+  
+  model_options_valid <- model_options %>% 
+    filter(!is.na(Var2), 
+           !duplicated(Var2))
+  
   # filter out valid parameter combinations 
-  model_options$valid <- (model_options$Var1 == model_options$Var2 %>% 
-                            lapply(FUN = function(i) {length(i)}) %>% 
-                            unlist())
-  model_options_valid <- model_options %>% filter(valid == TRUE)
+  # model_options$valid <- (model_options$Var1 == model_options$Var2 %>% 
+  #                           lapply(FUN = function(i) {length(i)}) %>% 
+  #                           unlist())
+  # model_options_valid <- model_options %>% filter(valid == TRUE)
   
   # for fully connected graph, only the first stage neighbourhood can be 
   # constructed 
@@ -711,6 +801,116 @@ return_best_knn_dnn <- function(df) {
                 res_old_class
   ) %>% data.frame())
 }
+
+# Restrictions - tuning parameters ----------------------------------------
+# circle through different alpha and beta order combinations and fit 
+# GNAR models with the function "fit_and_predict" for each data subset 
+fit_and_predict_for_restrictions <- function(alpha_options = seq(1, 5), 
+                                             beta_options = list(0, 1, 2, 3, 
+                                                                 4, 5, 6, 7, 
+                                                                 c(1, 1), 
+                                                                 c(2, 1), 
+                                                                 c(2, 2), 
+                                                                 c(3, 1),
+                                                                 c(4, 1),
+                                                                 c(5, 1),
+                                                                 c(1, 1, 1), 
+                                                                 c(2, 1, 1),
+                                                                 c(3, 1, 1),
+                                                                 c(4, 1, 1),
+                                                                 c(5, 1, 1),
+                                                                 c(2, 2, 1), 
+                                                                 c(2, 2, 2),
+                                                                 c(3, 2, 2), 
+                                                                 c(4, 2, 2),
+                                                                 c(5, 2, 2), 
+                                                                 c(1, 1, 1, 1), 
+                                                                 c(2, 1, 1, 1),
+                                                                 c(3, 1, 1, 1), 
+                                                                 c(4, 1, 1, 1),
+                                                                 c(5, 1, 1, 1),
+                                                                 c(2, 2, 1, 1),
+                                                                 c(2, 2, 2, 1), 
+                                                                 c(3, 2, 2, 1), 
+                                                                 c(4, 2, 2, 1),
+                                                                 c(5, 2, 2, 1),
+                                                                 c(2, 2, 2, 2),
+                                                                 # c(7, 2, 2, 2, 0),
+                                                                 c(1, 1, 1, 1, 1),
+                                                                 c(2, 1, 1, 1, 1),
+                                                                 c(3, 1, 1, 1, 1), 
+                                                                 c(4, 1, 1, 1, 1),
+                                                                 c(5, 1, 1, 1, 1),
+                                                                 c(6, 1, 1, 1, 1),
+                                                                 # c(7, 1, 1, 1, 1),
+                                                                 c(2, 2, 1, 1, 1), 
+                                                                 c(2, 2, 2, 1, 1),
+                                                                 c(3, 2, 2, 1, 1),
+                                                                 c(4, 2, 2, 1, 1),
+                                                                 c(5, 2, 2, 1, 1),
+                                                                 c(6, 2, 2, 1, 1),
+                                                                 # c(7, 2, 2, 1, 1),
+                                                                 c(2, 2, 2, 2, 1), 
+                                                                 c(2, 2, 2, 2, 2)
+                                             ), # in form of list
+                                             globalalpha = TRUE,
+                                             upper_limit, 
+                                             net, 
+                                             data_list = datasets_list,  
+                                             numeric_vertices = FALSE,
+                                             
+                                             # if not NULL, fit coefficients for 
+                                             # vertex classes 
+                                             weight_factor = NULL, 
+                                             
+                                             # if TRUE, INV-D weighting 
+                                             inverse_distance = FALSE, 
+                                             
+                                             # Great circle distance matrix with county names as row- / colnames 
+                                             distance_matrix = dist_urbanisation %>% as.matrix(), 
+                                             
+                                             # data frame with column CountyName and column weight
+                                             weight_index = population_weight, 
+                                             
+                                             # data frame with column CountyName and its numerical encoding 
+                                             county_index = NULL, 
+                                             
+                                             # if TRUE, the original GNARfit() function is applied
+                                             old = TRUE,
+                                             
+                                             forecast_window = 5) {
+  param <- list()
+  
+  for (i in seq(1, length(data_list))) {
+    res <- fit_and_predict_for_many(vts = data_list[[i]], 
+                                    net = net, 
+                                    alpha_options = alpha_options, 
+                                    beta_options = beta_options, 
+                                    globalalpha = globalalpha,
+                                    old = old,
+                                    forecast_window = forecast_window, 
+                                    numeric_vertices = numeric_vertices, 
+                                    weight_factor = weight_factor, 
+                                    inverse_distance = inverse_distance, 
+                                    distance_matrix = distance_matrix, 
+                                    weight_index = weight_index,
+                                    county_index = county_index, 
+                                    upper_limit = upper_limit)
+    
+    param[[i]] <- return_best_model(results_list = res)
+  }
+  param_df <- do.call(rbind.data.frame, param)
+  
+  param_df$data_subset <- seq(1, length(data_list))
+  
+  return(param_df[, c(3, 1, 2)])
+}
+
+
+save(res, file = "queen_restricted_data_results.RData")
+
+
+
 
 # Residual analysis -------------------------------------------------------
 # compute and plot residuals for GNAR model 
@@ -1126,437 +1326,67 @@ parameter_development_phases <- function(data_list = datasets_list_coarse,
   
   # format coefficient names 
   param_df$coefficient_formated <- gsub("dmat2", "", 
-                                        param_df$coefficient)
+                                        param_df$coefficient) 
+  
+  param_df <- param_df %>% 
+    mutate(order = ifelse(grepl("alpha", 
+                                param_df$coefficient_formated), 
+                          "alpha-order", 
+                          "beta-order"))
+  
   
   # visualise the change in coefficient values across data subsets  
-  g_alpha <- ggplot(param_df  %>% 
-                      filter(grepl("alpha", coefficient_formated)), 
+  g <- ggplot(param_df, 
                     aes(x = restriction, 
                         y = estimate, 
                         group = coefficient_formated, 
                         color = coefficient_formated)) +
-    geom_point() +
+    geom_point(size = 3) +
     geom_errorbar(aes(ymin = lower, 
                       ymax = upper, 
                       x = restriction, 
                       group = coefficient_formated, 
                       color = coefficient_formated), 
-                  width=0.2, 
+                  width=0.3, 
                   alpha = 0.5) +
     geom_line(linetype  = "dashed") +
     labs(x = "Pandemic phase", 
          y = "coefficient values", 
          color = "") +
-    scale_color_brewer(palette = "Dark2") +
-    theme(legend.position = "bottom") 
-  # +
-  #   guides(color = guide_legend(title = "GNAR coefficient"))
+    scale_color_manual(values = c("alpha1" = "#A3A500", 
+                                  "alpha2" = "#9590FF", 
+                                  "alpha3" = "#FF62BC", 
+                                  "alpha4" = "#F8766D", 
+                                  "alpha5" = "#E76BF3", 
+                                  "beta1.1" = "#00BFC4", 
+                                  "beta1.2" = "#00B0F6", 
+                                  "beta2.1" = "#00BF7D", 
+                                  "beta3.1" = "#39B600", 
+                                  "beta4.1" = "#D89000")
+                       
+    ) +
+    theme(legend.position = "bottom") +
+    facet_grid(. ~ order, 
+               scales = "free")
   
-  ggsave(file = paste0("Figures/ParameterDevelopment/alpha_order_", 
+  ggsave(file = paste0("Figures/ParameterDevelopment/", 
                        name,
                        ".pdf", 
                        collapse = ""), 
-         plot = g_alpha, 
-         width = 18, height = 15, unit = "cm")
+         plot = g, 
+         width = 25, 
+         height = 15, unit = "cm")
   
-  
-  g_beta <- ggplot(param_df  %>% 
-                     filter(grepl("beta", coefficient_formated)), 
-                   aes(x = restriction, 
-                       y = estimate, 
-                       group = coefficient_formated, 
-                       color = coefficient_formated)) +
-    geom_point() +
-    geom_errorbar(aes(ymin = lower, 
-                      ymax = upper, 
-                      x = restriction, 
-                      group = coefficient_formated, 
-                      color = coefficient_formated), 
-                  width=0.2, 
-                  alpha = 0.5) +
-    geom_line(linetype = "dashed") +
-    labs(x = "Pandemic phase", 
-         y = "coefficient values", 
-         color = "") +
-    scale_color_brewer(palette = "Dark2") +
-    theme(legend.position = "bottom") 
-  # +
-  #   guides(color = guide_legend(title = "GNAR coefficient"))
-  
-  ggsave(file = paste0("Figures/ParameterDevelopment/beta_order_", 
-                       name,
-                       ".pdf", 
-                       collapse = ""), 
-         plot = g_beta, 
-         width = 18, height = 15, unit = "cm")
-  
-  return(list("alpha" = g_alpha, 
-              "beta" = g_beta, 
+  return(list("plot" = g, 
               "dataset" = param_df))
   
-}
-
-
-# Restrictions - tuning parameters ----------------------------------------
-# circle through different alpha and beta order combinations and fit 
-# GNAR models with the function "fit_and_predict" for each data subset 
-fit_and_predict_for_restrictions <- function(alpha_options = seq(1, 5), 
-                                             beta_options = list(0, 1, 
-                                                                 c(1, 0), 
-                                                                 c(1, 1), 
-                                                                 c(2, 0), 
-                                                                 c(2, 1), 
-                                                                 c(2, 2), 
-                                                                 c(1, 0, 0), 
-                                                                 c(2, 0, 0),
-                                                                 c(3, 0, 0),
-                                                                 c(4, 0, 0),
-                                                                 c(5, 0, 0),
-                                                                 c(1, 1, 0),
-                                                                 c(2, 1, 0),
-                                                                 c(3, 1, 0),
-                                                                 c(4, 1, 0),
-                                                                 c(5, 1, 0),
-                                                                 c(2, 2, 0),
-                                                                 c(1, 1, 1), 
-                                                                 c(2, 1, 1),
-                                                                 c(3, 1, 1),
-                                                                 c(4, 1, 1),
-                                                                 c(5, 1, 1),
-                                                                 c(2, 2, 1), 
-                                                                 c(2, 2, 2),
-                                                                 c(3, 2, 2), 
-                                                                 c(4, 2, 2),
-                                                                 c(5, 2, 2), 
-                                                                 c(1, 0, 0, 0), 
-                                                                 c(2, 0, 0, 0),
-                                                                 c(3, 0, 0, 0),
-                                                                 c(4, 0, 0, 0),
-                                                                 c(5, 0, 0, 0),
-                                                                 c(1, 1, 0, 0), 
-                                                                 c(2, 1, 0, 0),
-                                                                 c(3, 1, 0, 0),
-                                                                 c(4, 1, 0, 0),
-                                                                 c(5, 1, 0, 0),
-                                                                 c(2, 2, 0, 0),
-                                                                 c(1, 1, 1, 0), 
-                                                                 c(2, 1, 1, 0),
-                                                                 c(3, 1, 1, 0), 
-                                                                 c(4, 1, 1, 0),
-                                                                 c(5, 1, 1, 0),
-                                                                 c(2, 2, 1, 0), 
-                                                                 c(2, 2, 2, 0),
-                                                                 c(3, 2, 2, 0),
-                                                                 c(4, 2, 2, 0),
-                                                                 c(5, 2, 2, 0),
-                                                                 c(1, 1, 1, 1), 
-                                                                 c(2, 1, 1, 1),
-                                                                 c(3, 1, 1, 1), 
-                                                                 c(4, 1, 1, 1),
-                                                                 c(5, 1, 1, 1),
-                                                                 c(2, 2, 1, 1),
-                                                                 c(2, 2, 2, 1), 
-                                                                 c(3, 2, 2, 1), 
-                                                                 c(4, 2, 2, 1),
-                                                                 c(5, 2, 2, 1),
-                                                                 c(2, 2, 2, 2),
-                                                                 c(1, 0, 0, 0, 0),
-                                                                 c(2, 0, 0, 0, 0),
-                                                                 c(3, 0, 0, 0, 0), 
-                                                                 c(4, 0, 0, 0, 0),
-                                                                 c(5, 0, 0, 0, 0), 
-                                                                 c(6, 0, 0, 0, 0), 
-                                                                 c(7, 0, 0, 0, 0), 
-                                                                 c(1, 1, 0, 0, 0),
-                                                                 c(2, 1, 0, 0, 0), 
-                                                                 c(3, 1, 0, 0, 0),
-                                                                 c(4, 1, 0, 0, 0),
-                                                                 c(5, 1, 0, 0, 0),
-                                                                 c(6, 1, 0, 0, 0),
-                                                                 c(7, 1, 0, 0, 0),
-                                                                 c(2, 2, 0, 0, 0),
-                                                                 c(1, 1, 1, 0, 0), 
-                                                                 c(2, 1, 1, 0, 0),
-                                                                 c(3, 1, 1, 0, 0), 
-                                                                 c(4, 1, 1, 0, 0),
-                                                                 c(5, 1, 1, 0, 0),
-                                                                 c(6, 1, 1, 0, 0),
-                                                                 c(7, 1, 1, 0, 0),
-                                                                 c(2, 2, 1, 0, 0), 
-                                                                 c(2, 2, 2, 0, 0),
-                                                                 c(1, 1, 1, 1, 0), 
-                                                                 c(2, 1, 1, 1, 0),
-                                                                 c(3, 1, 1, 1, 0), 
-                                                                 c(4, 1, 1, 1, 0),
-                                                                 c(5, 1, 1, 1, 0),
-                                                                 c(6, 1, 1, 1, 0),
-                                                                 c(7, 1, 1, 1, 0),
-                                                                 c(2, 2, 1, 1, 0), 
-                                                                 c(2, 2, 2, 1, 0),
-                                                                 c(2, 2, 2, 2, 0),
-                                                                 c(3, 2, 2, 2, 0), 
-                                                                 c(4, 2, 2, 2, 0),
-                                                                 c(5, 2, 2, 2, 0),
-                                                                 c(6, 2, 2, 2, 0),
-                                                                 c(7, 2, 2, 2, 0),
-                                                                 c(1, 1, 1, 1, 1),
-                                                                 c(2, 1, 1, 1, 1),
-                                                                 c(3, 1, 1, 1, 1), 
-                                                                 c(4, 1, 1, 1, 1),
-                                                                 c(5, 1, 1, 1, 1),
-                                                                 c(6, 1, 1, 1, 1),
-                                                                 c(7, 1, 1, 1, 1),
-                                                                 c(2, 2, 1, 1, 1), 
-                                                                 c(2, 2, 2, 1, 1),
-                                                                 c(3, 2, 2, 1, 1),
-                                                                 c(4, 2, 2, 1, 1),
-                                                                 c(5, 2, 2, 1, 1),
-                                                                 c(6, 2, 2, 1, 1),
-                                                                 c(7, 2, 2, 1, 1),
-                                                                 c(2, 2, 2, 2, 1), 
-                                                                 c(2, 2, 2, 2, 2)
-                                             ), # in form of list
-                                             globalalpha = TRUE, 
-                                             net, 
-                                             data_list = datasets_list,  
-                                             numeric_vertices = FALSE,
-                                             
-                                             # if not NULL, fit coefficients for 
-                                             # vertex classes 
-                                             weight_factor = NULL, 
-                                             
-                                             # if TRUE, INV-D weighting 
-                                             inverse_distance = FALSE, 
-                                             
-                                             # Great circle distance matrix with county names as row- / colnames 
-                                             distance_matrix = dist_urbanisation %>% as.matrix(), 
-                                             
-                                             # data frame with column CountyName and column weight
-                                             weight_index = population_weight, 
-                                             
-                                             # data frame with column CountyName and its numerical encoding 
-                                             county_index = NULL, 
-                                             
-                                             # if TRUE, the original GNARfit() function is applied
-                                             old = TRUE,
-                                             
-                                             forecast_window = 5,
-                                             upper_limit = 5) {
-  
-  # construct valid beta options list 
-  exclude <- lapply(beta_options, 
-                    FUN = function(i) any(i > upper_limit)) %>% 
-    unlist()
-  
-  beta_valid_options <- beta_options[!exclude]
-  
-  param <- list()
-  
-  for (i in seq(1, length(data_list))) {
-    res <- fit_and_predict_for_many(vts = data_list[[i]], 
-                                    net = net, 
-                                    alpha_options = alpha_options, 
-                                    beta_options = beta_valid_options, 
-                                    globalalpha = globalalpha,
-                                    old = old,
-                                    forecast_window = forecast_window, 
-                                    numeric_vertices = numeric_vertices, 
-                                    weight_factor = weight_factor, 
-                                    inverse_distance = inverse_distance, 
-                                    distance_matrix = distance_matrix, 
-                                    weight_index = weight_index,
-                                    county_index = county_index)
-    
-    param[[i]] <- return_best_model(results_list = res)
-  }
-  param_df <- do.call(rbind.data.frame, param)
-  
-  param_df$data_subset <- seq(1, length(data_list))
-  
-  return(param_df[, c(3, 1, 2)])
-}
-
-
-fit_and_predict_for_restrictions_all_models <- function(alpha_options = seq(1, 5), 
-                                                        beta_options = list(0, 1, 
-                                                                            c(1, 0), 
-                                                                            c(1, 1), 
-                                                                            c(2, 0), 
-                                                                            c(2, 1), 
-                                                                            c(2, 2), 
-                                                                            c(1, 0, 0), 
-                                                                            c(2, 0, 0),
-                                                                            c(3, 0, 0),
-                                                                            c(4, 0, 0),
-                                                                            c(5, 0, 0),
-                                                                            c(1, 1, 0),
-                                                                            c(2, 1, 0),
-                                                                            c(3, 1, 0),
-                                                                            c(4, 1, 0),
-                                                                            c(5, 1, 0),
-                                                                            c(2, 2, 0),
-                                                                            c(1, 1, 1), 
-                                                                            c(2, 1, 1),
-                                                                            c(3, 1, 1),
-                                                                            c(4, 1, 1),
-                                                                            c(5, 1, 1),
-                                                                            c(2, 2, 1), 
-                                                                            c(2, 2, 2),
-                                                                            c(3, 2, 2), 
-                                                                            c(4, 2, 2),
-                                                                            c(5, 2, 2), 
-                                                                            c(1, 0, 0, 0), 
-                                                                            c(2, 0, 0, 0),
-                                                                            c(3, 0, 0, 0),
-                                                                            c(4, 0, 0, 0),
-                                                                            c(5, 0, 0, 0),
-                                                                            c(1, 1, 0, 0), 
-                                                                            c(2, 1, 0, 0),
-                                                                            c(3, 1, 0, 0),
-                                                                            c(4, 1, 0, 0),
-                                                                            c(5, 1, 0, 0),
-                                                                            c(2, 2, 0, 0),
-                                                                            c(1, 1, 1, 0), 
-                                                                            c(2, 1, 1, 0),
-                                                                            c(3, 1, 1, 0), 
-                                                                            c(4, 1, 1, 0),
-                                                                            c(5, 1, 1, 0),
-                                                                            c(2, 2, 1, 0), 
-                                                                            c(2, 2, 2, 0),
-                                                                            c(3, 2, 2, 0),
-                                                                            c(4, 2, 2, 0),
-                                                                            c(5, 2, 2, 0),
-                                                                            c(1, 1, 1, 1), 
-                                                                            c(2, 1, 1, 1),
-                                                                            c(3, 1, 1, 1), 
-                                                                            c(4, 1, 1, 1),
-                                                                            c(5, 1, 1, 1),
-                                                                            c(2, 2, 1, 1),
-                                                                            c(2, 2, 2, 1), 
-                                                                            c(3, 2, 2, 1), 
-                                                                            c(4, 2, 2, 1),
-                                                                            c(5, 2, 2, 1),
-                                                                            c(2, 2, 2, 2),
-                                                                            c(1, 0, 0, 0, 0),
-                                                                            c(2, 0, 0, 0, 0),
-                                                                            c(3, 0, 0, 0, 0), 
-                                                                            c(4, 0, 0, 0, 0),
-                                                                            c(5, 0, 0, 0, 0), 
-                                                                            c(6, 0, 0, 0, 0), 
-                                                                            c(7, 0, 0, 0, 0), 
-                                                                            c(1, 1, 0, 0, 0),
-                                                                            c(2, 1, 0, 0, 0), 
-                                                                            c(3, 1, 0, 0, 0),
-                                                                            c(4, 1, 0, 0, 0),
-                                                                            c(5, 1, 0, 0, 0),
-                                                                            c(6, 1, 0, 0, 0),
-                                                                            c(7, 1, 0, 0, 0),
-                                                                            c(2, 2, 0, 0, 0),
-                                                                            c(1, 1, 1, 0, 0), 
-                                                                            c(2, 1, 1, 0, 0),
-                                                                            c(3, 1, 1, 0, 0), 
-                                                                            c(4, 1, 1, 0, 0),
-                                                                            c(5, 1, 1, 0, 0),
-                                                                            c(6, 1, 1, 0, 0),
-                                                                            c(7, 1, 1, 0, 0),
-                                                                            c(2, 2, 1, 0, 0), 
-                                                                            c(2, 2, 2, 0, 0),
-                                                                            c(1, 1, 1, 1, 0), 
-                                                                            c(2, 1, 1, 1, 0),
-                                                                            c(3, 1, 1, 1, 0), 
-                                                                            c(4, 1, 1, 1, 0),
-                                                                            c(5, 1, 1, 1, 0),
-                                                                            c(6, 1, 1, 1, 0),
-                                                                            c(7, 1, 1, 1, 0),
-                                                                            c(2, 2, 1, 1, 0), 
-                                                                            c(2, 2, 2, 1, 0),
-                                                                            c(2, 2, 2, 2, 0),
-                                                                            c(3, 2, 2, 2, 0), 
-                                                                            c(4, 2, 2, 2, 0),
-                                                                            c(5, 2, 2, 2, 0),
-                                                                            c(6, 2, 2, 2, 0),
-                                                                            c(7, 2, 2, 2, 0),
-                                                                            c(1, 1, 1, 1, 1),
-                                                                            c(2, 1, 1, 1, 1),
-                                                                            c(3, 1, 1, 1, 1), 
-                                                                            c(4, 1, 1, 1, 1),
-                                                                            c(5, 1, 1, 1, 1),
-                                                                            c(6, 1, 1, 1, 1),
-                                                                            c(7, 1, 1, 1, 1),
-                                                                            c(2, 2, 1, 1, 1), 
-                                                                            c(2, 2, 2, 1, 1),
-                                                                            c(3, 2, 2, 1, 1),
-                                                                            c(4, 2, 2, 1, 1),
-                                                                            c(5, 2, 2, 1, 1),
-                                                                            c(6, 2, 2, 1, 1),
-                                                                            c(7, 2, 2, 1, 1),
-                                                                            c(2, 2, 2, 2, 1), 
-                                                                            c(2, 2, 2, 2, 2)
-                                                        ), # in form of list
-                                                        globalalpha = TRUE, 
-                                                        net, 
-                                                        data_list = datasets_list,  
-                                                        numeric_vertices = FALSE,
-                                                        
-                                                        # if not NULL, fit coefficients for 
-                                                        # vertex classes 
-                                                        weight_factor = NULL, 
-                                                        
-                                                        # if TRUE, INV-D weighting 
-                                                        inverse_distance = FALSE, 
-                                                        
-                                                        # Great circle distance matrix with county names as row- / colnames 
-                                                        distance_matrix = dist_urbanisation %>% as.matrix(), 
-                                                        
-                                                        # data frame with column CountyName and column weight
-                                                        weight_index = population_weight, 
-                                                        
-                                                        # data frame with column CountyName and its numerical encoding 
-                                                        county_index = NULL, 
-                                                        
-                                                        # if TRUE, the original GNARfit() function is applied
-                                                        old = TRUE,
-                                                        
-                                                        forecast_window = 5,
-                                                        upper_limit = 5) {
-  
-  # construct valid beta options list 
-  exclude <- lapply(beta_options, 
-                    FUN = function(i) any(i > upper_limit)) %>% 
-    unlist()
-  
-  beta_valid_options <- beta_options[!exclude]
-  
-  param <- list()
-  
-  for (i in seq(1, length(data_list))) {
-    res <- fit_and_predict_for_many(vts = data_list[[i]], 
-                                    net = net, 
-                                    alpha_options = alpha_options, 
-                                    beta_options = beta_valid_options, 
-                                    globalalpha = globalalpha,
-                                    old = old,
-                                    forecast_window = forecast_window, 
-                                    numeric_vertices = numeric_vertices, 
-                                    weight_factor = weight_factor, 
-                                    inverse_distance = inverse_distance, 
-                                    distance_matrix = distance_matrix, 
-                                    weight_index = weight_index,
-                                    county_index = county_index)
-    
-    param[[i]] <- res %>% 
-      mutate(data_subset = rep(i, nrow(res)))
-  }
-  param_df <- do.call(rbind.data.frame, param)
-  
-  return(param_df[, c(3, 1, 2, 4)])
 }
 
 # MASE --------------------------------------------------------------------
 # compute MASE for certain counties 
 compute_MASE <- function(model, 
                          network_name, 
-                         n_ahead = 10, 
+                         n_ahead = 3, 
                          counties = c("Dublin", 
                                       "Wicklow", 
                                       "Kerry", 
@@ -1633,16 +1463,16 @@ compute_MASE <- function(model,
 
 
 plot_mase_I <- function(mase_overview, 
-                        mase_name = "restricted", 
+                        mase_name = "restricted",
+                        counties_subset, 
+                        number_counties, 
+                        type_name = "grsdt", 
                         types = c("ARIMA", 
                                   "subset_1_gabriel", 
                                   "subset_1_relative", 
                                   "subset_1_soi", 
                                   "subset_1_delaunay", 
                                   "subset_1_train"),
-                        type_name = "delaunay", 
-                        counties_subset = all_counties[1:13], 
-                        number_counties = 1, 
                         color_types = c("ARIMA" = "#3A3B3C", 
                                         "subset_1_gabriel" = "#00BFC4", 
                                         "subset_1_relative" = "#00B0F6", 
@@ -1655,7 +1485,7 @@ plot_mase_I <- function(mase_overview,
                                            "SOI", 
                                            "Delaunay", 
                                            "Train"), 
-                        lag = "lag_1") {
+                        selected_networks = NULL) {
   # filter current considered network 
   mase_overview_df <- mase_overview %>% 
     filter(type %in% types, 
@@ -1663,6 +1493,12 @@ plot_mase_I <- function(mase_overview,
   # create factor type 
   mase_overview_df$type <- factor(mase_overview_df$type, 
                                   levels = types)
+  
+  # filter networks if applicable 
+  if(!is.null(selected_networks)) {
+    mase_overview_df <- mase_overview_df %>% 
+      filter(types %in% selected_networks)
+  }
   
   
   g <- ggplot(mase_overview_df, 
@@ -1686,7 +1522,6 @@ plot_mase_I <- function(mase_overview,
                            "_", 
                            mase_name, 
                            "_", 
-                           lag, 
                            number_counties,
                            ".pdf", 
                            collapse = ""), 
@@ -1700,8 +1535,7 @@ plot_mase_II <- function(mase_overview,
                          mase_name = "restricted", 
                          counties_subset,
                          number_counties, 
-                         lag = "lag_1", 
-                         type_name = "knn", 
+                         type_name = "kdcqeh", 
                          types = c("ARIMA", 
                                    "subset_1_knn", 
                                    "subset_1_dnn", 
@@ -1713,7 +1547,8 @@ plot_mase_II <- function(mase_overview,
                                          "subset_1_dnn" = "#D89000", 
                                          "subset_1_complete" = "#A3A500", 
                                          "subset_1_queen" = "#39B600", 
-                                         "subset_1_eco_hub" = "#00BF7D")) {
+                                         "subset_1_eco_hub" = "#00BF7D"), 
+                         selected_networks = NULL) {
   plot_mase_I(mase_overview = mase_overview, 
               mase_name = mase_name, 
               types = types,
@@ -1727,7 +1562,7 @@ plot_mase_II <- function(mase_overview,
                                  "Complete",
                                  "Queen", 
                                  "Eco hub"), 
-              lag = lag)
+              selected_networks = selected_networks)
 }
 
 
@@ -1741,9 +1576,9 @@ plot_predicted_vs_fitted_I <- function(mase_overview,
                                                  "subset_1_soi", 
                                                  "subset_1_delaunay", 
                                                  "subset_1_train"),
-                                       type_name = "delaunay", 
-                                       counties_subset = all_counties[1:13], 
-                                       number_counties = 1, 
+                                       type_name = "grsdt", 
+                                       counties_subset, 
+                                       number_counties, 
                                        color_types = c("ARIMA" = "#3A3B3C", 
                                                        "subset_1_gabriel" = "#00BFC4", 
                                                        "subset_1_relative" = "#00B0F6", 
@@ -1755,8 +1590,7 @@ plot_predicted_vs_fitted_I <- function(mase_overview,
                                                           "Relative", 
                                                           "SOI", 
                                                           "Delaunay", 
-                                                          "Train"), 
-                                       lag = "lag_1") {
+                                                          "Train")) {
   # filter current considered network 
   mase_overview_df <- mase_overview %>% 
     filter(type %in% types, 
@@ -1795,7 +1629,6 @@ plot_predicted_vs_fitted_I <- function(mase_overview,
                            "_", 
                            mase_name, 
                            "_", 
-                           lag, 
                            number_counties,
                            ".pdf", 
                            collapse = ""), 
@@ -1808,8 +1641,8 @@ plot_predicted_vs_fitted_I <- function(mase_overview,
 plot_predicted_vs_fitted_II <- function(mase_overview, 
                                         mase_name = "restricted",
                                         counties_subset,
-                                        number_counties, 
-                                        lag = "lag_1", 
+                                        number_counties,
+                                        type_name = "kdcqeh", 
                                         types = c("ARIMA", 
                                                   "subset_1_knn", 
                                                   "subset_1_dnn", 
@@ -1825,7 +1658,7 @@ plot_predicted_vs_fitted_II <- function(mase_overview,
   plot_predicted_vs_fitted_I(mase_overview = mase_overview, 
                              mase_name = mase_name, 
                              types = types,
-                             type_name = "knn", 
+                             type_name = type_name, 
                              counties_subset = counties_subset, 
                              number_counties = number_counties, 
                              color_types = color_types, 
@@ -1834,191 +1667,7 @@ plot_predicted_vs_fitted_II <- function(mase_overview,
                                                 "DNN", 
                                                 "Complete",
                                                 "Queen", 
-                                                "Eco hub"), 
-                             lag = lag)
+                                                "Eco hub"))
 }
-
-
-# Simulation data  --------------------------------------------------------
-# generate simulated data
-simulate_time_series <- function(gnar_object, 
-                                 model_coef, # model coefficients
-                                 alpha_order,
-                                 beta_order, # beta order
-                                 initial_mean = 10, 
-                                 var_noise, # variance for error term
-                                 county_index, 
-                                 counties = counties_v, 
-                                 timeframe = 120) {
-  # determine max stage across lags 
-  max_stage <- beta_order %>% max()
-  
-  # generate white noise 1-lag COVID-19 ID values for first n days
-  initial_array <- rnorm(n = alpha_order  * 26, 
-                      mean = initial_mean, 
-                      sd = sqrt(var_noise)) %>%
-    array(dim = c(alpha_order, 26))
-  
-  # initialize data frame to store simulated data
-  simulated_array <- array(0, dim = c(timeframe, 26))
-  simulated_array[1:alpha_order, ] <- initial_array
-  
-  
-  # assign counties to columns  
-  colnames(simulated_array) <- counties
-  
-  # current time 
-  current_end <- initial_array %>% nrow()
-  
-  # predict for weeks according to time frame
-  while (current_end < timeframe) {
-    simulated_values <- array(0, dim = 26)
-    
-    for (county in counties) {
-      df_index <- which(colnames(simulated_array) == county)
-      
-      # create data frame consisting of the relevant county as column
-      initial_df_county <- simulated_array[, county]
-      
-      # numeric index for vertex according to county index
-      county_to_vertex <- county_index[county_index$CountyName == county, ]$index
-      
-      
-      # separate alpha and beta coefficients 
-      alpha_coef <- model_coef  %>% 
-        filter(grepl("alpha", type))
-      
-      beta_coef <- model_coef  %>% 
-        filter(grepl("beta", type))
-      
-      # compute shortest path length between county and all remaining counties
-      spl_county <- distances(graph = gnar_object %>% 
-                                GNARtoigraph(), 
-                              v = county_to_vertex) %>% 
-        t() %>% 
-        as.data.frame()
-      colnames(spl_county) <- "spl"
-      spl_county$index <- seq(1, 26)
-      
-      # add shortest path length to county index data frame 
-      spl_county_names <- left_join(county_index, 
-                                    spl_county, 
-                                    by = "index")
-      
-      # create vector for beta terms to be saved in 
-      beta_part <- array(0, dim = c(alpha_order, max_stage))
-      
-      for (lagged in seq(1, alpha_order)) {
-        # determine neighborhood stage for certain lag
-        beta_order_component <- beta_order[lagged]
-        
-        # determine beta coefficients for certain lag 
-        beta_coef_lagged <- beta_coef %>%
-          filter(grepl(paste0("beta", lagged), type))
-        
-        # for every stage, identify neighbors and compute term based on beta coefficients and lagged values 
-        if (beta_order_component != 0) {
-          for (stage in seq(1, beta_order_component)) {
-            # identify vertices in certain neighbourhood stage 
-            stage_neighbourhood <- spl_county_names %>% 
-              filter(spl == stage) %>% 
-              pull(CountyName)
-            
-            # compute SPL weights as the inverse of numbers of vertices
-            # in neighbourhood
-            neighbour_weight <- 1 / (stage_neighbourhood %>% 
-                                       length())
-            
-            # filter data for neighbours 
-            initial_df_neighbours <- simulated_array[, stage_neighbourhood]
-            
-            # compute beta term for certain time lag 
-            beta_part[lagged, stage] <- beta_coef_lagged$param[stage] * neighbour_weight * sum(initial_df_neighbours[current_end + 1 - lagged])
-            
-          }
-        } 
-      }
-      
-      # compute alpha term as sum of all time lags 
-      alpha_term <- sum(alpha_coef$param * initial_df_county[(current_end + 1 - alpha_order) : current_end])
-      
-      # compute over beta term as sum of all time lags 
-      beta_term <- beta_part %>% sum()
-      
-      # compute simulated value plus random error
-      simulated_values[df_index] <- alpha_term + beta_term + rnorm(n = 1, 
-                                                        mean = 0, 
-                                                        sd = sqrt(var_noise))
-      
-    }
-    # add new row with simulated data points for each county  
-    simulated_array[current_end + 1, ] <- simulated_values
-    
-    
-    # compute current time end point 
-    current_end <- current_end + 1
-  }
-  
-  # assign fictional "time" 
-  simulated_df <- simulated_array %>% 
-    as.data.frame() %>% 
-    mutate(time = seq(1, timeframe))
-  
-  # transform into long data table 
-  simulated_df_long <- simulated_df %>% 
-    gather("CountyName", 
-           "ID", 
-           -time)
-  
-  return(simulated_df_long)
-}
-
-
-# re-compute GNAR model coefficients for simulated data 
-reconstruct_coefficients <- function(model_coef,
-                                     simulation_df, 
-                                     alphaOrder, 
-                                     betaOrder, 
-                                     gnar_object) {
-
-  simulation_short <- simulation_df %>% 
-    spread(CountyName, ID) %>% 
-    dplyr::select(-time) %>% 
-    as.matrix()
-  
-  gnar_model <- GNARfit(vts = simulation_short, 
-                        net = gnar_object, 
-                        alphaOrder = alphaOrder, 
-                        betaOrder = betaOrder, 
-                        globalalpha = TRUE)
-  
-  # extract estimated model coefficients 
-  fitted_coef_df <- gnar_model %>% 
-    coef() %>% 
-    as.data.frame()
-  colnames(fitted_coef_df) <- "recomp_param"
-  
-  fitted_coef_df <- fitted_coef_df %>% 
-    mutate(type = rownames(fitted_coef_df))
-  
-  # join true and estimated coefficients 
-  compare_coef <- left_join(fitted_coef_df, 
-                            model_coef, 
-                            by = "type")
-    
-  
-  # compute 95% confidence interval 
-  ci_coef <- gnar_model$mod %>% confint() 
-  
-  # add confidence interval to coefficient estimate 
-  compare_coef$recomp_param_ci <- paste0(compare_coef$recomp_param %>% round(2), 
-                                    " [", 
-                                    ci_coef[, 1] %>% round(2),
-                                    ", ",
-                                    ci_coef[, 2] %>% round(2),
-                                    "]")
-  return(compare_coef[, c(2, 3, 4)])
-}
-
 
 

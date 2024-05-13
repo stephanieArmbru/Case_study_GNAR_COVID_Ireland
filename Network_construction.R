@@ -66,18 +66,6 @@ COVID_weekly_data <- read_csv(file = "Data/ireland_covid_weekly.csv",
 # data for pandemic phases
 load(file = "Data/RObjects/data_subsets_pandemic_situations.RData")
 
-COVID_restricted <- datasets_list_coarse$restrictive %>% 
-  as.data.frame() %>% 
-  mutate(yw = rownames(datasets_list_coarse$restrictive)) %>% 
-  gather("CountyName", "weeklyCases", -c(yw)) %>% 
-  na.omit()
-
-COVID_unrestricted <- datasets_list_coarse$free %>% 
-  as.data.frame() %>% 
-  mutate(yw = rownames(datasets_list_coarse$free)) %>% 
-  gather("CountyName", "weeklyCases", -c(yw)) %>% 
-  na.omit()
-
 # correct format for GNAR models
 covid_cases <-  COVID_weekly_data %>% 
   dplyr::select(CountyName,
@@ -104,9 +92,9 @@ hubs <- c("Dublin",
 
 # Load maps data ----------------------------------------------------------
 # download Ireland data level 1 from GADM database
-# ireland <- raster::getData('GADM',
-#                            country='IRL',
-#                            level = 1)
+ireland <- raster::getData('GADM',
+                           country='IRL',
+                           level = 1)
 
 # comparison of county spelling in maps data and COVID data 
 setdiff(COVID_weekly_data$CountyName %>% unique(), ireland$NAME_1)
@@ -659,6 +647,33 @@ county_index_complete <- data.frame("CountyName" = complete_net_igraph %>%
                                       names(), 
                                     "index" = seq(1, 26))
 
+
+# KNN and DNN networks (best for restricted and unrestricted data sets)
+# KNN k = 7
+knn_7 <- knearneigh(x = coord_urbanisation, 
+                     k = 7, 
+                     longlat = TRUE) %>% 
+  knn2nb(row.names = coord_urbanisation %>% rownames(),)
+
+knn_7_igraph<- neighborsDataFrame(nb = knn_7) %>% 
+  graph_from_data_frame(directed = FALSE) %>% 
+  igraph::simplify() 
+
+knn_7_gnar <- knn_7_igraph %>% 
+  igraphtoGNAR()
+
+# visualise network 
+# plot(st_geometry(ireland_shp),
+#      border="grey")
+# plot(knn_7,
+#      coord_urbanisation,
+#      pch = 19, cex = 0.6,
+#      add=TRUE)
+# text(coord_urbanisation[, 1],
+#      coord_urbanisation[, 2],
+#      labels = rownames(coord_urbanisation),
+#      cex = 0.8, font = 2, pos = 1)
+
 # KNN k = 21
 knn_21 <- knearneigh(x = coord_urbanisation, 
                      k = 21, 
@@ -684,6 +699,59 @@ knn_21_gnar <- knn_21_igraph %>%
 #      labels = rownames(coord_urbanisation),
 #      cex = 0.8, font = 2, pos = 1)
 
+# DNN (d = 200)
+dnn_200 <- dnearneigh(x = coord_urbanisation, 
+                      d1 = 0, 
+                      d2 = 200,
+                      row.names = coord_urbanisation %>% rownames(),
+                      longlat = TRUE, 
+                      use_s2 = TRUE)
+
+dnn_200_igraph<- neighborsDataFrame(nb = dnn_200) %>% 
+  graph_from_data_frame(directed = FALSE) %>% 
+  igraph::simplify() 
+
+dnn_200_gnar <- dnn_200_igraph %>% 
+  igraphtoGNAR()
+
+# visualise network 
+# plot(st_geometry(ireland_shp),
+#      border="grey")
+# plot(dnn_200,
+#      coord_urbanisation,
+#      pch = 19, cex = 0.6,
+#      add=TRUE)
+# text(coord_urbanisation[, 1],
+#      coord_urbanisation[, 2],
+#      labels = rownames(coord_urbanisation),
+#      cex = 0.8, font = 2, pos = 1)
+
+# DNN (d = 325)
+dnn_325 <- dnearneigh(x = coord_urbanisation, 
+                      d1 = 0, 
+                      d2 = 325,
+                      row.names = coord_urbanisation %>% rownames(),
+                      longlat = TRUE, 
+                      use_s2 = TRUE)
+
+dnn_325_igraph<- neighborsDataFrame(nb = dnn_325) %>% 
+  graph_from_data_frame(directed = FALSE) %>% 
+  igraph::simplify() 
+
+dnn_325_gnar <- dnn_325_igraph %>% 
+  igraphtoGNAR()
+
+# visualise network 
+# plot(st_geometry(ireland_shp),
+#      border="grey")
+# plot(dnn_325,
+#      coord_urbanisation,
+#      pch = 19, cex = 0.6,
+#      add=TRUE)
+# text(coord_urbanisation[, 1],
+#      coord_urbanisation[, 2],
+#      labels = rownames(coord_urbanisation),
+#      cex = 0.8, font = 2, pos = 1)
 
 
 # Save objects -----------------------------------------------------------
