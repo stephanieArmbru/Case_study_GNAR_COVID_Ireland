@@ -102,7 +102,7 @@ arima_results_list <- lapply(datasets_list_coarse, FUN = function(i) {
          start = c(start_date_year, start_date_month))
     
     arima_model <- auto.arima(y = covid_cases_county, 
-                              d = 0, D = 0)
+                              d = 0)
     
     results_arima[[county]] <- list("model" = arima_model, 
                                     data.frame("BIC" = arima_model %>% BIC(), 
@@ -114,7 +114,7 @@ arima_results_list <- lapply(datasets_list_coarse, FUN = function(i) {
   results_arima %>% return()
 })
 
-
+# mean BIC for ARIMA models 
 mean_arima_BIC <- lapply(arima_results_list, FUN = function(j) {
   lapply(j, FUN = function(i) {
     i[[2]]
@@ -132,13 +132,13 @@ lapply(arima_results_list, FUN = function(j) {
 })
 
 # predict and compute MASE for ARIMA models 
-mase_arima_restrictive <- fit_and_predict_arima(forecast_window = 3, 
+mase_arima_restrictive <- fit_and_predict_arima(forecast_window = 5, 
                                                 results = arima_results_list[[1]], 
                                                 data = datasets_list_coarse[[1]] %>% 
                                                   as.data.frame(), 
                                                 counties = all_counties
                                                 )
-mase_arima_free <- fit_and_predict_arima(forecast_window = 3, 
+mase_arima_free <- fit_and_predict_arima(forecast_window = 5, 
                                          results = arima_results_list[[2]], 
                                          data = datasets_list_coarse[[2]] %>% 
                                            as.data.frame(), 
@@ -150,73 +150,80 @@ mase_arima_free <- fit_and_predict_arima(forecast_window = 3,
 # based on the BIC 
 
 # upper limit based on maximum SPL for each network 
-
-# Queen 
 max_SPL_queen <- covid_net_queen_igraph %>% 
   get_diameter(directed = FALSE) %>% 
   length()
-
-best_for_subset_queen <- fit_and_predict_for_restrictions(net = covid_net_queen_gnar,
-                                                          data_list = datasets_list_coarse, 
-                                                          upper_limit = max_SPL_queen - 1)
-best_for_subset_queen$network <- "Queen"
-
-# Economic hub
 max_SPL_eco_hub <- covid_net_eco_hubs_igraph %>% 
   get_diameter(directed = FALSE) %>% 
   length()
+max_SPL_train <- covid_net_train_igraph %>% 
+  get_diameter(directed = FALSE) %>% 
+  length()
+max_SPL_delaunay <- covid_net_delaunay_igraph %>% 
+  get_diameter(directed = FALSE) %>% 
+  length()
+max_SPL_gabriel <- covid_net_gabriel_igraph %>% 
+  get_diameter(directed = FALSE) %>% 
+  length()
+max_SPL_relative <- covid_net_relative_igraph %>% 
+  get_diameter(directed = FALSE) %>% 
+  length()
+max_SPL_SOI <- covid_net_soi_igraph %>% 
+  get_diameter(directed = FALSE) %>% 
+  length()
+
+min(max_SPL_queen, 
+    max_SPL_eco_hub, 
+    max_SPL_train, 
+    max_SPL_delaunay, 
+    max_SPL_gabriel, 
+    max_SPL_relative, 
+    max_SPL_SOI)
+
+# Queen 
+best_for_subset_queen <- fit_and_predict_for_restrictions(net = covid_net_queen_gnar,
+                                                          data_list = datasets_list_coarse, 
+                                                          upper_limit = 5)
+best_for_subset_queen$network <- "Queen"
+
+# Economic hub
 best_for_subset_eco_hub <- fit_and_predict_for_restrictions(net = covid_net_eco_hubs_gnar, 
                                                             numeric_vertices = TRUE, 
                                                             county_index = county_index_eco_hubs, 
-                                                            upper_limit = max_SPL_eco_hub - 1, 
+                                                            upper_limit = 4, 
                                                             data_list = datasets_list_coarse)
 best_for_subset_eco_hub$network <- "Eco. hub"
 
 # Railway-based 
-max_SPL_train <- covid_net_train_igraph %>% 
-  get_diameter(directed = FALSE) %>% 
-  length()
 best_for_subset_train <- fit_and_predict_for_restrictions(net = covid_net_train_gnar, 
                                                           numeric_vertices = TRUE, 
                                                           county_index = county_index_train, 
-                                                          upper_limit = max_SPL_train, 
+                                                          upper_limit = 5, 
                                                           data_list = datasets_list_coarse)
 best_for_subset_train$network <- "Train"
 
 # Delaunay triangulation 
-max_SPL_delaunay <- covid_net_delaunay_igraph %>% 
-  get_diameter(directed = FALSE) %>% 
-  length()
 best_for_subset_delaunay <- fit_and_predict_for_restrictions(net = covid_net_delaunay_gnar, 
                                                              data_list = datasets_list_coarse, 
-                                                             upper_limit = max_SPL_delaunay - 1)
+                                                             upper_limit = 5)
 best_for_subset_delaunay$network <- "Delaunay"
 
 # Gabriel 
-max_SPL_gabriel <- covid_net_gabriel_igraph %>% 
-  get_diameter(directed = FALSE) %>% 
-  length()
 best_for_subset_gabriel <- fit_and_predict_for_restrictions(net = covid_net_gabriel_gnar, 
                                                             data_list = datasets_list_coarse, 
-                                                            upper_limit = max_SPL_gabriel - 1)
+                                                            upper_limit = 5)
 best_for_subset_gabriel$network <- "Gabriel"
 
 # Relative neighbourhood
-max_SPL_relative <- covid_net_relative_igraph %>% 
-  get_diameter(directed = FALSE) %>% 
-  length()
 best_for_subset_relative <- fit_and_predict_for_restrictions(net = covid_net_relative_gnar, 
                                                              data_list = datasets_list_coarse, 
-                                                             upper_limit = max_SPL_relative - 1)
+                                                             upper_limit = 5)
 best_for_subset_relative$network <- "Relative"
 
 # SOI 
-max_SPL_SOI <- covid_net_soi_igraph %>% 
-  get_diameter(directed = FALSE) %>% 
-  length()
 best_for_subset_soi <- fit_and_predict_for_restrictions(net = covid_net_soi_gnar, 
                                                         data_list = datasets_list_coarse, 
-                                                        upper_limit = max_SPL_SOI - 1)
+                                                        upper_limit = 5)
 best_for_subset_soi$network <- "SOI"
 
 # Complete
@@ -416,37 +423,27 @@ best_for_subset_all <-  best_for_subset_ordered %>%
 
 best_for_subset_all %>% view()
 
+# range 
+best_for_subset_ordered %>% 
+  group_by(ds) %>% 
+  summarise(range(BIC)) %>%
+  as.data.frame() 
+
 
 # Construct optimal network (KNN / DNN) -----------------------------------
-
-# DNN d = 100
-dnn_100 <- dnearneigh(x = coord_urbanisation, 
+# DNN d = 125
+dnn_125 <- dnearneigh(x = coord_urbanisation, 
                       d1 = 0, 
-                      d2 = 100,
+                      d2 = 125,
                       row.names = coord_urbanisation %>% rownames(),
                       longlat = TRUE, 
                       use_s2 = TRUE)
 
-dnn_100_igraph<- neighborsDataFrame(nb = dnn_100) %>% 
+dnn_125_igraph<- neighborsDataFrame(nb = dnn_125) %>% 
   graph_from_data_frame(directed = FALSE) %>% 
   igraph::simplify() 
 
-dnn_100_gnar <- dnn_100_igraph %>% 
-  igraphtoGNAR()
-
-# DNN d = 200
-dnn_200 <- dnearneigh(x = coord_urbanisation, 
-                      d1 = 0, 
-                      d2 = 200,
-                      row.names = coord_urbanisation %>% rownames(),
-                      longlat = TRUE, 
-                      use_s2 = TRUE)
-
-dnn_200_igraph<- neighborsDataFrame(nb = dnn_200) %>% 
-  graph_from_data_frame(directed = FALSE) %>% 
-  igraph::simplify() 
-
-dnn_200_gnar <- dnn_200_igraph %>% 
+dnn_125_gnar <- dnn_125_igraph %>% 
   igraphtoGNAR()
 
 # DNN d = 325
@@ -464,17 +461,17 @@ dnn_325_igraph<- neighborsDataFrame(nb = dnn_325) %>%
 dnn_325_gnar <- dnn_325_igraph %>% 
   igraphtoGNAR()
 
-# KNN k = 7
-knn_7 <- knearneigh(x = coord_urbanisation, 
-                     k = 7, 
+# KNN k = 11
+knn_11 <- knearneigh(x = coord_urbanisation, 
+                     k = 11, 
                      longlat = TRUE) %>% 
   knn2nb(row.names = coord_urbanisation %>% rownames(),)
 
-knn_7_igraph<- neighborsDataFrame(nb = knn_7) %>% 
+knn_11_igraph<- neighborsDataFrame(nb = knn_11) %>% 
   graph_from_data_frame(directed = FALSE) %>% 
   igraph::simplify() 
 
-knn_7_gnar <- knn_7_igraph %>% 
+knn_11_gnar <- knn_11_igraph %>% 
   igraphtoGNAR()
 
 # KNN k = 21
@@ -514,20 +511,17 @@ graph_relative <- network_characteristics(covid_net_relative_igraph,
 graph_soi <- network_characteristics(covid_net_soi_igraph, 
                                      "soi")
 
-# KNN k = 7 
-graph_knn_7 <- network_characteristics(knn_7_igraph, 
-                                       "knn (k = 7)")
+# KNN k = 11
+graph_knn_11 <- network_characteristics(knn_11_igraph, 
+                                       "knn (k = 11)")
 # KNN k = 21
 graph_knn_21 <- network_characteristics(knn_21_igraph, 
                                         "knn (k = 21)")
 
 
-# DNN d = 100
-graph_dnn_100 <- network_characteristics(dnn_100_igraph, 
-                                         "dnn (d = 100)")
-# DNN d = 200
-graph_dnn_200 <- network_characteristics(dnn_200_igraph, 
-                                         "dnn (d = 200)")
+# DNN d = 125
+graph_dnn_125 <- network_characteristics(dnn_125_igraph, 
+                                         "dnn (d = 125)")
 # DNN d = 325
 graph_dnn_325 <- network_characteristics(dnn_325_igraph, 
                                          "dnn (d = 325)")
@@ -544,11 +538,10 @@ graph_overview <- cbind("metric" = graph_queen$metric,
                         "eco_hub"= graph_eco_hub$eco_hub %>% round(2),
                         
                         
-                        "knn (k = 7)" = graph_knn_7$knn %>% round(2), 
+                        "knn (k = 11)" = graph_knn_11$knn %>% round(2), 
                         "knn (k = 21)" = graph_knn_21$knn %>% round(2), 
                         
-                        "dnn (d = 100)" = graph_dnn_100$dnn %>% round(2), 
-                        "dnn (d = 200)" = graph_dnn_200$dnn %>% round(2), 
+                        # "dnn (d = 125)" = graph_dnn_125$dnn %>% round(2), 
                         "dnn (d = 325)" = graph_dnn_325$dnn %>% round(2), 
   
                         "delaunay" = graph_delaunay$delaunay %>% round(2), 
@@ -558,8 +551,8 @@ graph_overview <- cbind("metric" = graph_queen$metric,
 )
 
 strCaption <- "Overview of network characteristics for the \\textbf{Railway-based},
-\\textbf{Queen's contiguity}, \\textbf{Economic (Eco.) hub},  \\textbf{KNN} ($k = 7$ and $k = 21$),
-\\textbf{DNN} ($d = 200$ and $d = 325$), \\textbf{Delaunay triangulation}, 
+\\textbf{Queen's contiguity}, \\textbf{Economic (Eco.) hub},  \\textbf{KNN} ($k = 11$ and $k = 21$),
+\\textbf{DNN} ($d = 325$), \\textbf{Delaunay triangulation}, 
 \\textbf{Gabriel}, \\textbf{SOI}, \\textbf{Relative neighbourhood (Rel. neigh.)} network; 
 including average (av.) degree, average (av.) shortest path length (SPL), 
 average (av.) local clustering (clust.). The average shortest path length and average local clustering 
@@ -568,7 +561,7 @@ print(xtable(graph_overview[c(1, 3, 5, 8, 9), ],
              digits=2,
              caption=strCaption,
              label="tab:network_char", 
-             align = c("", "l", "|", "r", "r", "r", "r", "r", "r", "r", "r", "r", "r", "r")),
+             align = c("", "l", "|", "r", "r", "r", "r", "r", "r", "r", "r", "r", "r")),
       include.rownames=FALSE, 
       include.colnames=FALSE, 
       caption.placement="bottom",
@@ -577,8 +570,8 @@ print(xtable(graph_overview[c(1, 3, 5, 8, 9), ],
                                    nrow(graph_overview[c(1, 3, 5, 8, 9), ])),
                         command = c(paste("\\toprule \n",
                                           " Metric & Railway & Queen & Eco. hub 
-                                          & KNN (k = 7) & KNN (k = 21) & 
-                                          DNN (d = 200) & DNN (d = 325) & 
+                                          & KNN (k = 11) & KNN (k = 21) & 
+                                          DNN (d = 325) & 
                                           Delaunay & Gabriel &
                                            SOI & Rel. neigh.  \\\\\n",
                                           "\\midrule \n"),
@@ -596,11 +589,10 @@ graph_df <- rbind("delaunay" = graph_delaunay$delaunay %>% round(2),
                   "eco_hub"= graph_eco_hub$eco_hub %>% round(2), 
                   "train" = graph_train$train %>% round(2), 
                   
-                  "knn (k = 7)" = graph_knn_7$knn %>% round(2), 
+                  "knn (k = 11)" = graph_knn_11$knn %>% round(2), 
                   "knn (k = 21)" = graph_knn_21$knn %>% round(2), 
                   
-                  "dnn (d = 100)" = graph_dnn_100$dnn %>% round(2), 
-                  "dnn (d = 200)" = graph_dnn_200$dnn %>% round(2), 
+                  # "dnn (d = 125)" = graph_dnn_125$dnn %>% round(2), 
                   "dnn (d = 325)" = graph_dnn_325$dnn %>% round(2), 
                   
                   "complete" = graph_complete$complete %>% round(2)
@@ -609,10 +601,10 @@ graph_df <- rbind("delaunay" = graph_delaunay$delaunay %>% round(2),
 
 colnames(graph_df) <- graph_queen$metric
 graph_df$network <-  factor(as.vector(rownames(graph_df)), 
-                            levels = c("knn (k = 7)", 
+                            levels = c("knn (k = 11)", 
                                        "knn (k = 21)",
-                                       "dnn (d = 100)",
-                                       "dnn (d = 200)",
+                                       
+                                       # "dnn (d = 125)",
                                        "dnn (d = 325)",
                                        "complete",
                                        "queen",
@@ -659,13 +651,12 @@ g <- ggplot(graph_df,
            shape = cluster %>% as.factor())) +
   geom_point(size = 4) +
   labs(x = "Network density", 
-       y = "Average local clustering", 
+       y = "Average local clustering coefficient", 
        shape = "Network cluster") +
-  scale_color_manual(values = c("knn (k = 7)" = "#F8766D", 
+  scale_color_manual(values = c("knn (k = 11)" = "#F8766D", 
                                 "knn (k = 21)" = "#F8996d", 
                                 
-                                "dnn (d = 100)" = "black", 
-                                "dnn (d = 200)" = "#D89000", 
+                                # "dnn (d = 125)" = "#D89000", 
                                 "dnn (d = 325)" = "#D86c00", 
                                 
                                 "complete" = "#A3A500", 
@@ -677,9 +668,9 @@ g <- ggplot(graph_df,
                                 "soi" = "#9590FF", 
                                 "delaunay" = "#E76BF3", 
                                 "train" = "#FF62BC"), 
-                     labels = c("KNN (k = 7)",
+                     labels = c("KNN (k = 11)",
                                 "KNN (k = 21)",
-                                "DNN (d = 200)",
+                                # "DNN (d = 125)",
                                 "DNN (d = 325)",
                                 
                                 "Complete",
@@ -800,16 +791,16 @@ moran_complete <- moran_I_permutation_test(data = COVID_weekly_data,
 
 # KNN
 moran_knn_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
-                                                 g = knn_7_igraph, 
-                                                 name = "knn_7")
+                                                 g = knn_11_igraph, 
+                                                 name = "knn_11")
 moran_knn_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
                                                    g = knn_21_igraph, 
                                                    name = "knn_21")
 
 # DNN
 moran_dnn_restricted <- moran_I_permutation_test(data = data_restricted_MORAN, 
-                                                 g = dnn_200_igraph, 
-                                                 name = "dnn_200")
+                                                 g = dnn_325_igraph, 
+                                                 name = "dnn_325")
 moran_dnn_unrestricted <- moran_I_permutation_test(data = data_free_MORAN, 
                                                    g = dnn_325_igraph, 
                                                    name = "dnn_325")
@@ -855,14 +846,17 @@ morans_per_test_unrestricted <- c(moran_train_unrestricted,
 # spatial autocorrelation measured as Moran's I on ranks for each network
 # Queen 
 rank_moran_queen <- rank_moran_I_permutation_test(data = COVID_weekly_data, 
-                                        g = covid_net_queen_igraph, 
-                                        name = "queen")
-rank_moran_queen_restricted <- rank_moran_I_permutation_test(data = data_restricted_MORAN, 
-                                                   g = covid_net_queen_igraph, 
-                                                   name = "queen_restricted")
-rank_moran_queen_unrestricted <- rank_moran_I_permutation_test(data = data_free_MORAN, 
-                                                     g = covid_net_queen_igraph, 
-                                                     name = "queen_unrestricted")
+                                                    g = covid_net_queen_igraph, 
+                                                    county_index = county_index_queen, 
+                                                    name = "queen")
+rank_moran_queen_restricted <- rank_moran_I_permutation_test(data = COVID_weekly_data, 
+                                                               g = covid_net_queen_igraph, 
+                                                               county_index = county_index_queen, 
+                                                               name = "queen")
+rank_moran_queen_unrestricted <- rank_moran_I_permutation_test(data = COVID_weekly_data, 
+                                                                 g = covid_net_queen_igraph, 
+                                                                 county_index = county_index_queen, 
+                                                                 name = "queen")
 
 
 # Economic hubs 
@@ -948,8 +942,8 @@ rank_moran_complete <- rank_moran_I_permutation_test(data = COVID_weekly_data,
 
 # KNN
 rank_moran_knn_restricted <- rank_moran_I_permutation_test(data = data_restricted_MORAN, 
-                                                 g = knn_7_igraph, 
-                                                 name = "knn_7_restricted")
+                                                 g = knn_11_igraph, 
+                                                 name = "knn_11_restricted")
 rank_moran_knn_unrestricted <- rank_moran_I_permutation_test(data = data_free_MORAN, 
                                                    g = knn_21_igraph, 
                                                    name = "knn_21_unrestricted")
@@ -961,8 +955,8 @@ rank_moran_knn_unrestricted <- rank_moran_I_permutation_test(data = COVID_weekly
 
 # DNN
 rank_moran_dnn_restricted <- rank_moran_I_permutation_test(data = data_restricted_MORAN, 
-                                                 g = dnn_200_igraph, 
-                                                 name = "dnn_200")
+                                                 g = dnn_325_igraph, 
+                                                 name = "dnn_325")
 rank_moran_dnn_unrestricted <- rank_moran_I_permutation_test(data = data_free_MORAN, 
                                                    g = dnn_325_igraph, 
                                                    name = "dnn_325")
@@ -1001,177 +995,174 @@ rank_morans_per_test_unrestricted <- c(rank_moran_train_unrestricted,
   round(3)
 
 
-
-
-
-
 # MASE for restrictive ----------------------------------------------------
 # fit best performing GNAR model for each network for data subset 1
+
 best_for_subset %>% filter(data_subset == 1)
 best_subset_knn_dnn %>% filter(data_subset == 1)
 
 # Queen
-mod_1_queen <- fit_and_predict(alpha = 5, 
-                               beta = c(2, 1, 1, 1, 1), 
+mod_1_queen <- fit_and_predict(alpha = 7, 
+                               beta = c(1, 1, 0, 0, 0, 0, 0), 
                                net = covid_net_queen_gnar, 
                                vts = datasets_list_coarse[[1]], 
                                globalalpha = TRUE, 
                                old = TRUE,
-                               forecast_window = 3, 
+                               forecast_window = 5, 
                                return_model = TRUE)
 
 # Eco hub 
-mod_1_eco_hub <- fit_and_predict(alpha = 5, 
-                                 beta = c(2, 1, 1, 1, 1), 
+mod_1_eco_hub <- fit_and_predict(alpha = 7, 
+                                 beta = c(3, 1, 1, 0, 0, 0, 0), 
                                  net = covid_net_eco_hubs_gnar, 
                                  vts = datasets_list_coarse[[1]], 
                                  globalalpha = TRUE, 
                                  old = TRUE,
-                                 forecast_window = 3, 
+                                 forecast_window = 5, 
                                  return_model = TRUE, 
                                  numeric_vertices = TRUE, 
                                  county_index = county_index_eco_hubs)
 
 # Railway 
-mod_1_train <- fit_and_predict(alpha = 5, 
-                               beta = c(3, 1, 1, 0, 0), 
+mod_1_train <- fit_and_predict(alpha = 7, 
+                               beta = c(1, 0, 0, 0, 0, 0, 0), 
                                net = covid_net_train_gnar, 
                                vts = datasets_list_coarse[[1]], 
                                globalalpha = TRUE, 
                                old = TRUE,
-                               forecast_window = 3, 
+                               forecast_window = 5, 
                                return_model = TRUE, 
                                numeric_vertices = TRUE, 
                                county_index = county_index_train)
 
 # Delaunay
-mod_1_delaunay <- fit_and_predict(alpha = 5, 
-                                  beta = c(1, 0, 0, 0, 0), 
+mod_1_delaunay <- fit_and_predict(alpha = 7, 
+                                  beta = c(2, 1, 1, 1, 0, 0, 0), 
                                   net = covid_net_delaunay_gnar, 
                                   vts = datasets_list_coarse[[1]], 
                                   globalalpha = TRUE, 
                                   old = TRUE,
-                                  forecast_window = 3, 
+                                  forecast_window = 5, 
                                   return_model = TRUE)
 
 # Gabriel
-mod_1_gabriel <- fit_and_predict(alpha = 5, 
-                                 beta = c(4, 1, 1, 1, 1), 
+mod_1_gabriel <- fit_and_predict(alpha = 7, 
+                                 beta = c(4, 1, 0, 0, 0, 0, 0), 
                                  net = covid_net_gabriel_gnar, 
                                  vts = datasets_list_coarse[[1]], 
                                  globalalpha = TRUE, 
                                  old = TRUE,
-                                 forecast_window = 3, 
+                                 forecast_window = 5, 
                                  return_model = TRUE)
 
 # Relative 
-mod_1_relative <- fit_and_predict(alpha = 5, 
-                                  beta = c(5, 1, 0, 0, 0), 
+mod_1_relative <- fit_and_predict(alpha = 7, 
+                                  beta = c(4, 0, 0, 0, 0, 0, 0), 
                                   net = covid_net_relative_gnar, 
                                   vts = datasets_list_coarse[[1]], 
                                   globalalpha = TRUE, 
                                   old = TRUE,
-                                  forecast_window = 3, 
+                                  forecast_window = 5, 
                                   return_model = TRUE)
 
 # SOI
-mod_1_soi <- fit_and_predict(alpha = 5, 
-                             beta = c(2, 0, 0, 0, 0), 
+mod_1_soi <- fit_and_predict(alpha = 7, 
+                             beta = c(2, 2, 2, 2, 2, 0, 0), 
                              net = covid_net_soi_gnar, 
                              vts = datasets_list_coarse[[1]], 
                              globalalpha = TRUE, 
                              old = TRUE,
-                             forecast_window = 3, 
+                             forecast_window = 5, 
                              return_model = TRUE)
 
 # KNN
-mod_1_knn <- fit_and_predict(alpha = 5, 
-                             beta = c(4, 2, 2, 2, 0), 
-                             net = knn_7_gnar, 
+mod_1_knn <- fit_and_predict(alpha = 7, 
+                             beta = c(2, 2, 2, 2, 0, 0, 0), 
+                             net = knn_11_gnar, 
                              vts = datasets_list_coarse[[1]], 
                              globalalpha = TRUE, 
                              old = TRUE,
-                             forecast_window = 3, 
+                             forecast_window = 5, 
                              return_model = TRUE)
 
 # DNN
-mod_1_dnn <- fit_and_predict(alpha = 5, 
-                             beta = c(1, 1, 1, 1, 1), 
-                             net = dnn_200_gnar, 
+mod_1_dnn <- fit_and_predict(alpha = 7, 
+                             beta = c(2, 1, 0, 0, 0, 0, 0), 
+                             net = dnn_325_gnar, 
                              vts = datasets_list_coarse[[1]], 
                              globalalpha = TRUE, 
                              old = TRUE,
-                             forecast_window = 3, 
+                             forecast_window = 5, 
                              return_model = TRUE)
 
 # Complete
-mod_1_complete <- fit_and_predict(alpha = 5, 
-                                  beta = c(1, 0, 0, 0, 0), 
+mod_1_complete <- fit_and_predict(alpha = 7, 
+                                  beta = c(1, 1, 0, 0, 0, 0, 0), 
                                   net = complete_net_gnar, 
                                   vts = datasets_list_coarse[[1]], 
                                   globalalpha = TRUE, 
                                   old = TRUE,
-                                  forecast_window = 3, 
+                                  forecast_window = 5, 
                                   return_model = TRUE)
 
 # compute MASE for best performing GNAR model for each network
 mase_1_queen <- compute_MASE(model = mod_1_queen, 
                              network_name = "subset_1_queen", 
-                             n_ahead = 3, 
+                             n_ahead = 5, 
                              data_df = data_restricted, 
                              counties = all_counties)
 
 mase_1_eco_hub <- compute_MASE(model = mod_1_eco_hub, 
                                network_name = "subset_1_eco_hub", 
-                               n_ahead = 3, 
+                               n_ahead = 5, 
                                data_df = data_restricted, 
                                counties = all_counties)
 
 mase_1_train <- compute_MASE(model = mod_1_train, 
                              network_name = "subset_1_train", 
-                             n_ahead = 3, 
+                             n_ahead = 5, 
                              data_df = data_restricted, 
                              counties = all_counties)
 
 mase_1_delaunay <- compute_MASE(model = mod_1_delaunay, 
                                 network_name = "subset_1_delaunay", 
-                                n_ahead = 3, 
+                                n_ahead = 5, 
                                 data_df = data_restricted, 
                                 counties = all_counties)
 
 mase_1_gabriel <- compute_MASE(model = mod_1_gabriel, 
                                network_name = "subset_1_gabriel", 
-                               n_ahead = 3, 
+                               n_ahead = 5, 
                                data_df = data_restricted, 
                                counties = all_counties)
 
 mase_1_relative <- compute_MASE(model = mod_1_relative, 
                                 network_name = "subset_1_relative", 
-                                n_ahead = 3, 
+                                n_ahead = 5, 
                                 data_df = data_restricted, 
                                 counties = all_counties)
 
 mase_1_soi <- compute_MASE(model = mod_1_soi, 
                            network_name = "subset_1_soi", 
-                           n_ahead = 3, 
+                           n_ahead = 5, 
                            data_df = data_restricted, 
                            counties = all_counties)
 
 mase_1_knn <- compute_MASE(model = mod_1_knn, 
                            network_name = "subset_1_knn", 
-                           n_ahead = 3, 
+                           n_ahead = 5, 
                            data_df = data_restricted, 
                            counties = all_counties)
 
 mase_1_dnn <- compute_MASE(model = mod_1_dnn, 
                            network_name = "subset_1_dnn", 
-                           n_ahead = 3, 
+                           n_ahead = 5, 
                            data_df = data_restricted, 
                            counties = all_counties)
 
 mase_1_complete <- compute_MASE(model = mod_1_complete, 
                                 network_name = "subset_1_complete", 
-                                n_ahead = 3, 
+                                n_ahead = 5, 
                                 data_df = data_restricted, 
                                 counties = all_counties)
 
@@ -1242,167 +1233,167 @@ best_for_subset %>% filter(data_subset == 2)
 best_subset_knn_dnn %>% filter(data_subset == 2)
 
 # Queen
-mod_2_queen <- fit_and_predict(alpha = 5, 
-                               beta = c(3, 0, 0, 0, 0), 
+mod_2_queen <- fit_and_predict(alpha = 7, 
+                               beta = c(3, 0, 0, 0, 0, 0, 0), 
                                net = covid_net_queen_gnar, 
                                vts = datasets_list_coarse[[2]], 
                                globalalpha = TRUE, 
                                old = TRUE,
-                               forecast_window = 3, 
+                               forecast_window = 5, 
                                return_model = TRUE)
 
 # Eco hub 
-mod_2_eco_hub <- fit_and_predict(alpha = 5, 
-                                 beta = c(3, 2, 2, 2, 0), 
+mod_2_eco_hub <- fit_and_predict(alpha = 7, 
+                                 beta = c(3, 0, 0, 0, 0, 0, 0), 
                                  net = covid_net_eco_hubs_gnar, 
                                  vts = datasets_list_coarse[[2]], 
                                  globalalpha = TRUE, 
                                  old = TRUE,
-                                 forecast_window = 3, 
+                                 forecast_window = 5, 
                                  return_model = TRUE, 
                                  numeric_vertices = TRUE, 
                                  county_index = county_index_eco_hubs)
 
 # Railway 
-mod_2_train <- fit_and_predict(alpha = 5, 
-                               beta = c(5, 0, 0, 0, 0), 
+mod_2_train <- fit_and_predict(alpha = 7, 
+                               beta = c(5, 0, 0, 0, 0, 0, 0), 
                                net = covid_net_train_gnar, 
                                vts = datasets_list_coarse[[2]], 
                                globalalpha = TRUE, 
                                old = TRUE,
-                               forecast_window = 3, 
+                               forecast_window = 5, 
                                return_model = TRUE, 
                                numeric_vertices = TRUE, 
                                county_index = county_index_train)
 # Delaunay
-mod_2_delaunay <- fit_and_predict(alpha = 4, 
-                                  beta = c(4, 1, 1, 1), 
+mod_2_delaunay <- fit_and_predict(alpha = 7, 
+                                  beta = c(4, 1, 1, 1, 0, 0, 0), 
                                   net = covid_net_delaunay_gnar, 
                                   vts = datasets_list_coarse[[2]], 
                                   globalalpha = TRUE, 
                                   old = TRUE,
-                                  forecast_window = 3, 
+                                  forecast_window = 5, 
                                   return_model = TRUE)
 
 # Gabriel
-mod_2_gabriel <- fit_and_predict(alpha = 5, 
-                                 beta = c(4, 0, 0, 0, 0), 
+mod_2_gabriel <- fit_and_predict(alpha = 7, 
+                                 beta = c(4, 0, 0, 0, 0, 0, 0), 
                                  net = covid_net_gabriel_gnar, 
                                  vts = datasets_list_coarse[[2]], 
                                  globalalpha = TRUE, 
                                  old = TRUE,
-                                 forecast_window = 3, 
+                                 forecast_window = 5, 
                                  return_model = TRUE)
 
 # Relative 
-mod_2_relative <- fit_and_predict(alpha = 5, 
-                                  beta = c(5, 0, 0, 0, 0), 
+mod_2_relative <- fit_and_predict(alpha = 7, 
+                                  beta = c(5, 0, 0, 0, 0, 0, 0), 
                                   net = covid_net_relative_gnar, 
                                   vts = datasets_list_coarse[[2]], 
                                   globalalpha = TRUE, 
                                   old = TRUE,
-                                  forecast_window = 3, 
+                                  forecast_window = 5, 
                                   return_model = TRUE)
 
 # SOI
-mod_2_soi <- fit_and_predict(alpha = 5, 
-                             beta = c(4, 1, 0, 0, 0), 
+mod_2_soi <- fit_and_predict(alpha = 7, 
+                             beta = c(4, 0, 0, 0, 0, 0, 0), 
                              net = covid_net_soi_gnar, 
                              vts = datasets_list_coarse[[2]], 
                              globalalpha = TRUE, 
                              old = TRUE,
-                             forecast_window = 3, 
+                             forecast_window = 5, 
                              return_model = TRUE)
 
 # KNN
-mod_2_knn <- fit_and_predict(alpha = 5, 
-                             beta = c(1, 1, 1, 1, 0), 
+mod_2_knn <- fit_and_predict(alpha = 7, 
+                             beta = c(1, 1, 1, 1, 0, 0, 0), 
                              net = knn_21_gnar, 
                              vts = datasets_list_coarse[[2]], 
                              globalalpha = TRUE, 
                              old = TRUE,
-                             forecast_window = 3, 
+                             forecast_window = 5, 
                              return_model = TRUE)
 
 # DNN
-mod_2_dnn <- fit_and_predict(alpha = 5, 
-                             beta = c(1, 1, 1, 1, 0), 
+mod_2_dnn <- fit_and_predict(alpha = 7, 
+                             beta = c(1, 1, 1, 1, 0, 0, 0), 
                              net = dnn_325_gnar, 
                              vts = datasets_list_coarse[[2]], 
                              globalalpha = TRUE, 
                              old = TRUE,
-                             forecast_window = 3, 
+                             forecast_window = 5, 
                              return_model = TRUE)
 
 # Complete
-mod_2_complete <- fit_and_predict(alpha = 5, 
-                                  beta = c(1, 1, 1, 1, 0), 
+mod_2_complete <- fit_and_predict(alpha = 7, 
+                                  beta = c(1, 1, 1, 1, 0, 0, 0), 
                                   net = complete_net_gnar, 
                                   vts = datasets_list_coarse[[2]], 
                                   globalalpha = TRUE, 
                                   old = TRUE,
-                                  forecast_window = 3, 
+                                  forecast_window = 5, 
                                   return_model = TRUE)
 
 
 # compute MASE for best performing GNAR model for each network
 mase_2_queen <- compute_MASE(model = mod_2_queen, 
                              network_name = "subset_2_queen", 
-                             n_ahead = 3, 
+                             n_ahead = 5, 
                              data_df = data_free, 
                              counties = all_counties)
 
 mase_2_eco_hub <- compute_MASE(model = mod_2_eco_hub, 
                                network_name = "subset_2_eco_hub", 
-                               n_ahead = 3, 
+                               n_ahead = 5, 
                                data_df = data_free, 
                                counties = all_counties)
 
 mase_2_train <- compute_MASE(model = mod_2_train, 
                              network_name = "subset_2_train", 
-                             n_ahead = 3, 
+                             n_ahead = 5, 
                              data_df = data_free,
                              counties = all_counties)
 
 mase_2_delaunay <- compute_MASE(model = mod_2_delaunay, 
                                 network_name = "subset_2_delaunay", 
-                                n_ahead = 3, 
+                                n_ahead = 5, 
                                 data_df = data_free, 
                                 counties = all_counties)
 
 mase_2_gabriel <- compute_MASE(model = mod_2_gabriel, 
                                network_name = "subset_2_gabriel", 
-                               n_ahead = 3, 
+                               n_ahead = 5, 
                                data_df = data_free, 
                                counties = all_counties)
 
 mase_2_relative <- compute_MASE(model = mod_2_relative, 
                                 network_name = "subset_2_relative", 
-                                n_ahead = 3, 
+                                n_ahead = 5, 
                                 data_df = data_free, 
                                 counties = all_counties)
 
 mase_2_soi <- compute_MASE(model = mod_2_soi, 
                            network_name = "subset_2_soi", 
-                           n_ahead = 3, 
+                           n_ahead = 5, 
                            data_df = data_free, 
                            counties = all_counties)
 
 mase_2_knn <- compute_MASE(model = mod_2_knn, 
                            network_name = "subset_2_knn", 
-                           n_ahead = 3, 
+                           n_ahead = 5, 
                            data_df = data_free, 
                            counties = all_counties)
 
 mase_2_dnn <- compute_MASE(model = mod_2_dnn, 
                            network_name = "subset_2_dnn", 
-                           n_ahead = 3, 
+                           n_ahead = 5, 
                            data_df = data_free, 
                            counties = all_counties)
 
 mase_2_complete <- compute_MASE(model = mod_2_complete, 
                                 network_name = "subset_2_complete", 
-                                n_ahead = 3, 
+                                n_ahead = 5, 
                                 data_df = data_free, 
                                 counties = all_counties)
 
@@ -1528,12 +1519,12 @@ g_2_delaunay_I <- plot_predicted_vs_fitted_I(mase_overview = mase_2_overview,
                                              mase_name = "free", 
                                              counties_subset = all_counties[1:9],
                                              number_counties = 1, 
-                                             types = c("subset_2_delaunay", 
+                                             types = c("ARIMA", 
                                                        "subset_2_gabriel", 
                                                        "subset_2_relative", 
                                                        "subset_2_soi", 
-                                                       "subset_2_train", 
-                                                       "ARIMA"), 
+                                                       "subset_2_delaunay", 
+                                                       "subset_2_train"), 
                                              color_types = c("ARIMA" = "#3A3B3C", 
                                                              "subset_2_gabriel" = "#00BFC4", 
                                                              "subset_2_relative" = "#00B0F6", 
@@ -1544,12 +1535,12 @@ g_2_delaunay_II <- plot_predicted_vs_fitted_I(mase_overview = mase_2_overview,
                                               mase_name = "free", 
                                               counties_subset = all_counties[10:18], 
                                               number_counties = 2, 
-                                              types = c("subset_2_delaunay", 
+                                              types = c("ARIMA", 
                                                         "subset_2_gabriel", 
                                                         "subset_2_relative", 
                                                         "subset_2_soi", 
-                                                        "subset_2_train", 
-                                                        "ARIMA"), 
+                                                        "subset_2_delaunay", 
+                                                        "subset_2_train"), 
                                               color_types = c("ARIMA" = "#3A3B3C", 
                                                               "subset_2_gabriel" = "#00BFC4", 
                                                               "subset_2_relative" = "#00B0F6", 
@@ -1560,12 +1551,12 @@ g_2_delaunay_III <- plot_predicted_vs_fitted_I(mase_overview = mase_2_overview,
                                                mase_name = "free", 
                                                counties_subset = all_counties[19:26], 
                                                number_counties = 3, 
-                                               types = c("subset_2_delaunay", 
+                                               types = c("ARIMA", 
                                                          "subset_2_gabriel", 
                                                          "subset_2_relative", 
                                                          "subset_2_soi", 
-                                                         "subset_2_train", 
-                                                         "ARIMA"), 
+                                                         "subset_2_delaunay", 
+                                                         "subset_2_train"), 
                                                color_types = c("ARIMA" = "#3A3B3C", 
                                                                "subset_2_gabriel" = "#00BFC4", 
                                                                "subset_2_relative" = "#00B0F6", 
@@ -1577,12 +1568,12 @@ g_2_knn_I <- plot_predicted_vs_fitted_II(mase_overview = mase_2_overview,
                                          mase_name = "free",
                                          counties_subset = all_counties[1:9],
                                          number_counties = 1, 
-                                         types = c("subset_2_dnn", 
+                                         types = c("ARIMA", 
                                                    "subset_2_knn", 
-                                                   "subset_2_queen", 
-                                                   "subset_2_eco_hub", 
+                                                   "subset_2_dnn", 
                                                    "subset_2_complete", 
-                                                   "ARIMA"), 
+                                                   "subset_2_queen", 
+                                                   "subset_2_eco_hub"), 
                                          color_types = c("ARIMA" = "#3A3B3C", 
                                                          "subset_2_knn" = "#F8766D", 
                                                          "subset_2_dnn" = "#D89000", 
@@ -1593,12 +1584,12 @@ g_2_knn_II <- plot_predicted_vs_fitted_II(mase_overview = mase_2_overview,
                                           mase_name = "free",
                                           counties_subset = all_counties[10:18],
                                           number_counties = 2, 
-                                          types = c("subset_2_dnn", 
+                                          types = c("ARIMA", 
                                                     "subset_2_knn", 
-                                                    "subset_2_queen", 
-                                                    "subset_2_eco_hub", 
+                                                    "subset_2_dnn", 
                                                     "subset_2_complete", 
-                                                    "ARIMA"), 
+                                                    "subset_2_queen", 
+                                                    "subset_2_eco_hub"), 
                                           color_types = c("ARIMA" = "#3A3B3C", 
                                                           "subset_2_knn" = "#F8766D", 
                                                           "subset_2_dnn" = "#D89000", 
@@ -1609,12 +1600,12 @@ g_2_knn_III <- plot_predicted_vs_fitted_II(mase_overview = mase_2_overview,
                                            mase_name = "free",
                                            counties_subset = all_counties[19:26],
                                            number_counties = 3, 
-                                           types = c("subset_2_dnn", 
+                                           types = c("ARIMA", 
                                                      "subset_2_knn", 
-                                                     "subset_2_queen", 
-                                                     "subset_2_eco_hub", 
+                                                     "subset_2_dnn", 
                                                      "subset_2_complete", 
-                                                     "ARIMA"), 
+                                                     "subset_2_queen", 
+                                                     "subset_2_eco_hub"), 
                                            color_types = c("ARIMA" = "#3A3B3C", 
                                                            "subset_2_knn" = "#F8766D", 
                                                            "subset_2_dnn" = "#D89000", 
@@ -1627,30 +1618,30 @@ g_2_knn_III <- plot_predicted_vs_fitted_II(mase_overview = mase_2_overview,
 # Best GNAR for restrictions ----------------------------------------------
 best_for_subset_all
 
-best_model_restrictive <- fit_and_predict(alpha = 5, 
-                                          beta = c(2, 1, 1, 1, 1), 
-                                          net = covid_net_queen_gnar, 
+best_model_restrictive <- fit_and_predict(alpha = 7, 
+                                          beta = c(3, 1, 1, 0, 0, 0, 0), 
+                                          net = covid_net_eco_hubs_gnar, 
                                           vts = datasets_list_coarse[[1]], 
                                           globalalpha = TRUE, 
                                           old = TRUE,
-                                          forecast_window = 3, 
+                                          forecast_window = 5, 
                                           return_model = TRUE)
 # data set 2
-best_model_free <- fit_and_predict(alpha = 5, 
-                                   beta = c(1, 1, 1, 1, 0), 
+best_model_free <- fit_and_predict(alpha = 7, 
+                                   beta = c(1, 1, 1, 1, 0, 0, 0), 
                                    net = knn_21_gnar, 
                                    vts = datasets_list_coarse[[2]], 
                                    globalalpha = TRUE, 
                                    old = TRUE,
-                                   forecast_window = 3, 
+                                   forecast_window = 5, 
                                    return_model = TRUE)
 
 
-mean_restrictive <- mase_1_queen %>% 
+mean_restrictive <- mase_1_eco_hub %>% 
   dplyr::select(res, mase) %>% 
   colMeans()
 
-sd_restrictive <- mase_1_queen %>% 
+sd_restrictive <- mase_1_eco_hub %>% 
   dplyr::select(res, mase) %>% 
   summarise(sd_res = sd(res), 
             sd_mase = sd(mase))
@@ -1665,11 +1656,12 @@ sd_free <- mase_2_knn %>%
             sd_mase = sd(mase))
 
 
-best_for_subset_all <- cbind(best_for_subset_all,
+best_for_subset_all_formatted <- cbind(best_for_subset_all,
                              "AIC" = c(AIC(best_model_restrictive), 
                                        AIC(best_model_free)), 
                              rbind(mean_restrictive, 
-                                   mean_free))
+                                   mean_free)) %>% 
+  dplyr::select(c(ds, network, name, BIC, res, mase))
 
 
 
@@ -1679,7 +1671,7 @@ restricted and unrestricted pandemic phases; average residual
 $\\Bar{\\varepsilon}$ and average (av.) MASE indicated for the predicted 5 
 weeks at the end of the observed time period, 11.04.2021 - 09.05.2021 for the 
 restricted dataset and 25.12.2022 - 22.01.2023 for the unrestricted dataset."
-print(xtable(best_for_subset_all[, c(1, 4, 2, 3, 6, 7)],
+print(xtable(best_for_subset_all_formatted,
              digits=2,
              caption=strCaption,
              label="tab:best_model_pandemic_phases", 
@@ -1689,7 +1681,7 @@ print(xtable(best_for_subset_all[, c(1, 4, 2, 3, 6, 7)],
       caption.placement="bottom",
       hline.after=NULL,
       add.to.row = list(pos = list(-1,
-                                   nrow(best_for_subset_all[, c(1, 4, 2, 3, 6, 7)])),
+                                   nrow(best_for_subset_all_formatted)),
                         command = c(paste("\\toprule \n",
                                           "Data subset & network & \\code{GNAR} model & 
                                           BIC  & $\\Bar{\\varepsilon}$ & av. MASE \\\\\n",
@@ -1698,7 +1690,7 @@ print(xtable(best_for_subset_all[, c(1, 4, 2, 3, 6, 7)],
       )
 )
 
-paste0(best_for_subset_all$AIC %>% round(2), 
+paste0(best_for_subset_all_formatted$AIC %>% round(2), 
        collapse = ", ")
 
 
@@ -1754,8 +1746,8 @@ mean_arima_df$mean_AIC
 density_BIC <- data.frame(density = c(covid_net_train_igraph %>% graph.density(), 
                                       covid_net_queen_igraph %>% graph.density(), 
                                       covid_net_eco_hubs_igraph %>% graph.density(), 
-                                      knn_7_igraph %>% graph.density(), 
-                                      dnn_200_igraph %>% graph.density(), 
+                                      knn_11_igraph %>% graph.density(), 
+                                      dnn_325_igraph %>% graph.density(), 
                                       covid_net_delaunay_igraph %>% graph.density(), 
                                       covid_net_gabriel_igraph %>% graph.density(), 
                                       covid_net_soi_igraph %>% graph.density(), 
@@ -1774,13 +1766,13 @@ density_BIC <- data.frame(density = c(covid_net_train_igraph %>% graph.density()
                                       1), 
                           BIC = best_for_subset_ordered$BIC, 
                           Data = best_for_subset_ordered$ds, 
-                          Name = c(c("Railway", "Queen", "Eco. hub", "KNN k=7", 
-                                     "DNN d=200", "Delaunay", "Gabriel", "SOI", 
+                          Name = c(c("Railway", "Queen", "Eco. hub", "KNN k=11", 
+                                     "DNN d=325", "Delaunay", "Gabriel", "SOI", 
                                      "Rel.", "Complete"), 
                                    c("Railway", "Queen", "Eco. hub", "KNN k=21", 
                                      "DNN d=325", "Delaunay", "Gabriel", "SOI", 
                                      "Rel.", "Complete")), 
-                          Cluster = c(c(1, 1, 1, 1, 2, 1, 1, 1, 1, 2), 
+                          Cluster = c(c(1, 1, 1, 2, 2, 1, 1, 1, 1, 2), 
                                       c(1, 1, 1, 2, 2, 1, 1, 1, 1, 2))
 )
 
@@ -1811,27 +1803,31 @@ ggsave(file = "Figures/GNAR_pandemic_phases/BIC_density.pdf",
 # Residual analysis for pandemic phases -----------------------------------
 residuals_restrictive <- check_and_plot_residuals_subset(model = best_model_restrictive, 
                                                          network_name = "restrictive_1_lag", 
-                                                         alpha = 5, 
-                                                         n_ahead = 3, 
+                                                         alpha = 7, 
+                                                         n_ahead = 5, 
                                                          data = datasets_list_coarse[[1]], 
                                                          counties = all_counties, 
                                                          dataset_name = "GNAR_pandemic_phases")
 
-ks_1_significant <- ks_residuals(mase_1_queen)
+ks_1_significant <- ks_residuals(mase_1_eco_hub)
 
-ks_1 <- mase_1_queen %>% 
-  split(mase_1_queen$CountyName) %>% 
+ks_1 <- mase_1_eco_hub %>% 
+  split(mase_1_eco_hub$CountyName) %>% 
   lapply(FUN = function(i) {
     return(ks.test(i$res, "pnorm")$p.value %>% round(digits = 3))
   }) %>% 
   list.rbind() %>% 
   as.data.frame() %>% 
   rownames_to_column(var = "CountyName")
+ks_1 %>% 
+  filter(V1 < 0.025) %>% 
+  pull(CountyName) %>% 
+  paste0(collapse = ", ")
 
 residuals_free <- check_and_plot_residuals_subset(model = best_model_free, 
                                                   network_name = "free_1_lag", 
-                                                  alpha = 5, 
-                                                  n_ahead = 3, 
+                                                  alpha = 7, 
+                                                  n_ahead = 5, 
                                                   data = datasets_list_coarse[[2]], 
                                                   counties = all_counties, 
                                                   dataset_name = "GNAR_pandemic_phases")
@@ -1847,9 +1843,14 @@ ks_2 <- mase_2_knn %>%
   as.data.frame() %>% 
   rownames_to_column(var = "CountyName")
 
+ks_2 %>% 
+  filter(V1 > 0.025) %>% 
+  pull(CountyName)
+  
+
 
 # KS-test -----------------------------------------------------------------
-mean_restrictive_counties <- mase_1_queen %>% 
+mean_restrictive_counties <- mase_1_eco_hub %>% 
   dplyr::select(CountyName, res, mase) %>% 
   group_by(CountyName) %>% 
   summarise(mean_res = mean(res) %>% round(digits = 2), 
@@ -1920,9 +1921,13 @@ print(xtable(overview_counties,
 
 # Autocorrelation ---------------------------------------------------------
 # Ljung Box test for each county individually 
+# NA means significant at some lag 
+# entries means not significant at some lag 
+AC_restrictive <- autocorrelation(res = residuals_restrictive, 
+                                  df_alpha = 7)
 
-AC_restrictive <- autocorrelation(res = residuals_restrictive)
-AC_free <- autocorrelation(res = residuals_free)
+AC_free <- autocorrelation(res = residuals_free, 
+                           df_alpha = 7)
 
 
 # Spatial correlation -----------------------------------------------------
@@ -1960,11 +1965,11 @@ SC_free <- moran_I_permutation_test(data = residuals_free %>% na.omit(),
 
 # Change in coefficients --------------------------------------------------
 # change in coefficients for optimal GNAR model 
-parameter_development_phases(net_list = list(covid_net_queen_gnar, 
+parameter_development_phases(net_list = list(covid_net_eco_hubs_gnar, 
                                              knn_21_gnar), 
-                             alpha_vector = c(5, 5),
-                             beta_list = list(c(2, 1, 1, 1, 1), 
-                                              c(1, 1, 1, 1, 0)),
+                             alpha_vector = c(7, 7),
+                             beta_list = list(c(3, 1, 1, 0, 0, 0, 0), 
+                                              c(1, 1, 1, 1, 0, 0, 0)),
                              county_index = county_index_knn,
                              globalalpha = TRUE,
                              old = TRUE, 

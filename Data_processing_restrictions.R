@@ -452,11 +452,13 @@ n_weeks <- datasets_list_coarse %>%
 
 (12 * (n_weeks / 100)^{1 / 4}) %>% floor()
 
+# based on shortest subset 
+(12 * (13 / 100)^{1 / 4}) %>% floor()
 
 # Save data subsets -------------------------------------------------------
-save(datasets_list,
-     file = "Data/RObjects/data_subsets_regulations.RData")
-save(datasets_list_coarse, 
-     file = "Data/RObjects/data_subsets_pandemic_situations.RData")
+# save(datasets_list,
+#      file = "Data/RObjects/data_subsets_regulations.RData")
+# save(datasets_list_coarse, 
+#      file = "Data/RObjects/data_subsets_pandemic_situations.RData")
 
 

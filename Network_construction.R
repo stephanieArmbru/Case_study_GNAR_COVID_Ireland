@@ -649,23 +649,23 @@ county_index_complete <- data.frame("CountyName" = complete_net_igraph %>%
 
 
 # KNN and DNN networks (best for restricted and unrestricted data sets)
-# KNN k = 7
-knn_7 <- knearneigh(x = coord_urbanisation, 
-                     k = 7, 
+# KNN k = 11
+knn_11 <- knearneigh(x = coord_urbanisation, 
+                     k = 11, 
                      longlat = TRUE) %>% 
   knn2nb(row.names = coord_urbanisation %>% rownames(),)
 
-knn_7_igraph<- neighborsDataFrame(nb = knn_7) %>% 
+knn_11_igraph<- neighborsDataFrame(nb = knn_11) %>% 
   graph_from_data_frame(directed = FALSE) %>% 
   igraph::simplify() 
 
-knn_7_gnar <- knn_7_igraph %>% 
+knn_11_gnar <- knn_11_igraph %>% 
   igraphtoGNAR()
 
 # visualise network 
 # plot(st_geometry(ireland_shp),
 #      border="grey")
-# plot(knn_7,
+# plot(knn_11,
 #      coord_urbanisation,
 #      pch = 19, cex = 0.6,
 #      add=TRUE)
@@ -699,25 +699,25 @@ knn_21_gnar <- knn_21_igraph %>%
 #      labels = rownames(coord_urbanisation),
 #      cex = 0.8, font = 2, pos = 1)
 
-# DNN (d = 200)
-dnn_200 <- dnearneigh(x = coord_urbanisation, 
+# DNN (d = 125)
+dnn_125 <- dnearneigh(x = coord_urbanisation, 
                       d1 = 0, 
                       d2 = 200,
                       row.names = coord_urbanisation %>% rownames(),
                       longlat = TRUE, 
                       use_s2 = TRUE)
 
-dnn_200_igraph<- neighborsDataFrame(nb = dnn_200) %>% 
+dnn_125_igraph<- neighborsDataFrame(nb = dnn_125) %>% 
   graph_from_data_frame(directed = FALSE) %>% 
   igraph::simplify() 
 
-dnn_200_gnar <- dnn_200_igraph %>% 
+dnn_125_gnar <- dnn_125_igraph %>% 
   igraphtoGNAR()
 
 # visualise network 
 # plot(st_geometry(ireland_shp),
 #      border="grey")
-# plot(dnn_200,
+# plot(dnn_125,
 #      coord_urbanisation,
 #      pch = 19, cex = 0.6,
 #      add=TRUE)

@@ -305,20 +305,20 @@ boxcox(lm(weeklyCasesDiff + 693 ~ 1 + CountyName,
 dev.off()
 
 # Save pre-processed data -------------------------------------------------
-COVID_final <- COVID_data_week_smooth %>% 
-  dplyr::select("CountyName", 
-                "yw", 
-                "weeklyCasesSum", 
-                "weeklyCases", 
-                "weeklyCasesDiff", 
-                "PopulationCensus16") %>% 
-  mutate(weeklyCases_non_lag = weeklyCases) %>% 
-  dplyr::select(-weeklyCases) %>% 
-  rename(weeklyCases = weeklyCasesDiff)
-
-# check if all necessary columns include 
-COVID_final %>% colnames()
-# save data set
-write_csv(COVID_final,
-          file = "Data/ireland_covid_weekly.csv")
+# COVID_final <- COVID_data_week_smooth %>% 
+#   dplyr::select("CountyName", 
+#                 "yw", 
+#                 "weeklyCasesSum", 
+#                 "weeklyCases", 
+#                 "weeklyCasesDiff", 
+#                 "PopulationCensus16") %>% 
+#   mutate(weeklyCases_non_lag = weeklyCases) %>% 
+#   dplyr::select(-weeklyCases) %>% 
+#   rename(weeklyCases = weeklyCasesDiff)
+# 
+# # check if all necessary columns include 
+# COVID_final %>% colnames()
+# # save data set
+# write_csv(COVID_final,
+#           file = "Data/ireland_covid_weekly.csv")
 

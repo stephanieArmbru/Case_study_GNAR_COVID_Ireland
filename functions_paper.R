@@ -246,6 +246,11 @@ moran_I_permutation_test <- function(data = COVID_weekly_data,
     pull(p) %>% 
     mean()
   
+  morans_number_outside <- moran_df %>% 
+    mutate(p = ifelse(observed > upper_ci | observed < lower_ci, 1, 0)) %>% 
+    pull(p) %>% 
+    sum()
+  
   # Visualize and save plot 
   ggplot(moran_df, 
          aes(x = dates, 
@@ -282,7 +287,8 @@ moran_I_permutation_test <- function(data = COVID_weekly_data,
   ggsave(paste0("Figures/MoransI/covid_moran_", name, ".pdf", collapse = ""), 
          width = 27, height = 14, unit = "cm")
   
-  return(morans_p)
+  return(list(p = morans_p, 
+         number = morans_number_outside))
 }
 
 # Knox Mantel test 
@@ -556,7 +562,7 @@ fit_and_predict <- function(alpha, beta,
                             old = FALSE, 
                             
                             return_model = FALSE, 
-                            forecast_window = 10
+                            forecast_window
 ) {
   
   train_window <- dim(vts)[1] - forecast_window
@@ -624,26 +630,55 @@ fit_and_predict <- function(alpha, beta,
 
 # circle through different alpha and beta order combinations and fit 
 # GNAR models with the function "fit_and_predict" 
-fit_and_predict_for_many <- function(alpha_options = seq(1, 5), 
-                                     beta_options = list(0, 1, 2, 
+fit_and_predict_for_many <- function(alpha_options = seq(1, 7), 
+                                     beta_options = list(0, 1, 2, 3, 
+                                                         4, 5,
                                                          c(1, 1), 
                                                          c(2, 1), 
                                                          c(2, 2), 
+                                                         c(3, 1),
+                                                         c(4, 1),
+                                                         c(5, 1),
                                                          c(1, 1, 1), 
                                                          c(2, 1, 1),
+                                                         c(3, 1, 1),
+                                                         c(4, 1, 1),
+                                                         c(5, 1, 1),
+                                                         c(2, 2, 1), 
+                                                         c(2, 2, 2),
+                                                         c(3, 2, 2), 
+                                                         c(4, 2, 2),
+                                                         c(5, 2, 2), 
                                                          c(1, 1, 1, 1), 
                                                          c(2, 1, 1, 1),
+                                                         c(3, 1, 1, 1), 
+                                                         c(4, 1, 1, 1),
+                                                         c(5, 1, 1, 1),
                                                          c(2, 2, 1, 1),
                                                          c(2, 2, 2, 1), 
+                                                         c(3, 2, 2, 1), 
+                                                         c(4, 2, 2, 1),
+                                                         c(5, 2, 2, 1),
+                                                         c(2, 2, 2, 2),
+                                                         # c(7, 2, 2, 2, 0),
                                                          c(1, 1, 1, 1, 1),
-                                                         c(2, 1, 1, 1, 1), 
+                                                         c(2, 1, 1, 1, 1),
+                                                         c(3, 1, 1, 1, 1), 
+                                                         c(4, 1, 1, 1, 1),
+                                                         # c(7, 1, 1, 1, 1),
                                                          c(2, 2, 1, 1, 1), 
-                                                         c(2, 2, 2, 1, 1)
+                                                         c(2, 2, 2, 1, 1),
+                                                         c(3, 2, 2, 1, 1),
+                                                         c(4, 2, 2, 1, 1),
+                                                         c(5, 2, 2, 1, 1),
+                                                         # c(7, 2, 2, 1, 1),
+                                                         c(2, 2, 2, 2, 1), 
+                                                         c(2, 2, 2, 2, 2)
                                      ), # in form of list
                                      globalalpha = c("TRUE", "FALSE"), 
                                      upper_limit = 5, 
                                      net, 
-                                     vts,  
+                                     vts = covid_cases,  
                                      numeric_vertices = FALSE, 
                                      
                                      # if not NULL, coefficients are computed for 
@@ -666,7 +701,7 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 5),
                                      # if TRUE, the original GNARfit() function is applied
                                      old = FALSE,
                                      
-                                     forecast_window) {
+                                     forecast_window = 5) {
   
   train_window <- dim(vts)[1] - forecast_window
   
@@ -707,17 +742,17 @@ fit_and_predict_for_many <- function(alpha_options = seq(1, 5),
   
   # for fully connected graph, only the first stage neighbourhood can be 
   # constructed 
-  if (any(net %>% 
-          GNARtoigraph() %>% 
-          igraph::degree() == net$edges %>% 
-          length() - 1)) {
-    only_1 <- model_options_valid %>% 
-      pull(Var2) %>% 
-      lapply(FUN = function(i) {not(2 %in% i)}) %>% 
-      unlist() 
-    
-    model_options_valid <- model_options_valid[only_1, ]
-  }
+  # if (any(net %>% 
+  #         GNARtoigraph() %>% 
+  #         igraph::degree() == net$edges %>% 
+  #         length() - 1)) {
+  #   only_1 <- model_options_valid %>% 
+  #     pull(Var2) %>% 
+  #     lapply(FUN = function(i) {not(2 %in% i)}) %>% 
+  #     unlist() 
+  #   
+  #   model_options_valid <- model_options_valid[only_1, ]
+  # }
   
   BIC_RSS <- data.frame()
   
@@ -805,9 +840,9 @@ return_best_knn_dnn <- function(df) {
 # Restrictions - tuning parameters ----------------------------------------
 # circle through different alpha and beta order combinations and fit 
 # GNAR models with the function "fit_and_predict" for each data subset 
-fit_and_predict_for_restrictions <- function(alpha_options = seq(1, 5), 
+fit_and_predict_for_restrictions <- function(alpha_options = seq(1, 7), 
                                              beta_options = list(0, 1, 2, 3, 
-                                                                 4, 5, 6, 7, 
+                                                                 4, 5,
                                                                  c(1, 1), 
                                                                  c(2, 1), 
                                                                  c(2, 2), 
@@ -840,15 +875,12 @@ fit_and_predict_for_restrictions <- function(alpha_options = seq(1, 5),
                                                                  c(2, 1, 1, 1, 1),
                                                                  c(3, 1, 1, 1, 1), 
                                                                  c(4, 1, 1, 1, 1),
-                                                                 c(5, 1, 1, 1, 1),
-                                                                 c(6, 1, 1, 1, 1),
                                                                  # c(7, 1, 1, 1, 1),
                                                                  c(2, 2, 1, 1, 1), 
                                                                  c(2, 2, 2, 1, 1),
                                                                  c(3, 2, 2, 1, 1),
                                                                  c(4, 2, 2, 1, 1),
                                                                  c(5, 2, 2, 1, 1),
-                                                                 c(6, 2, 2, 1, 1),
                                                                  # c(7, 2, 2, 1, 1),
                                                                  c(2, 2, 2, 2, 1), 
                                                                  c(2, 2, 2, 2, 2)
@@ -907,8 +939,6 @@ fit_and_predict_for_restrictions <- function(alpha_options = seq(1, 5),
 }
 
 
-save(res, file = "queen_restricted_data_results.RData")
-
 
 
 
@@ -916,12 +946,12 @@ save(res, file = "queen_restricted_data_results.RData")
 # compute and plot residuals for GNAR model 
 check_and_plot_residuals <- function(model, 
                                      network_name, 
-                                     alpha = 4, 
-                                     n_ahead = 10, 
+                                     alpha, 
+                                     n_ahead, 
                                      counties = c("Dublin",
-                                                       "Wicklow", 
-                                                       "Kerry", 
-                                                       "Donegal"), 
+                                                  "Wicklow", 
+                                                  "Kerry", 
+                                                  "Donegal"), 
                                      data = covid_cases) {
   
   fitted_df <- model %>% residuals() %>% data.frame()
@@ -955,7 +985,7 @@ check_and_plot_residuals <- function(model,
 # compute and plot residuals for GNAR model 
 check_and_plot_residuals_subset <- function(model, 
                                      network_name, 
-                                     alpha = 5, 
+                                     alpha = 7, 
                                      n_ahead = 5, 
                                      counties = c("Dublin",
                                                        "Wicklow", 
@@ -1386,7 +1416,7 @@ parameter_development_phases <- function(data_list = datasets_list_coarse,
 # compute MASE for certain counties 
 compute_MASE <- function(model, 
                          network_name, 
-                         n_ahead = 3, 
+                         n_ahead = 5, 
                          counties = c("Dublin", 
                                       "Wicklow", 
                                       "Kerry", 
