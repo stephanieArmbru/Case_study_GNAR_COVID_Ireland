@@ -1,13 +1,13 @@
 # Structure 
 
-R code for paper Armbruster and Reinert, 2023, "COVID-19 incidence in the Republic of Ireland:  A case study for network-based time series models"
+R code for paper Armbruster and Reinert, 2024, "Network-based time series modeling for COVID-19 incidence in the Republic of Ireland"
 
 ### For citation: <br />
-@article{armbruster2023covid,<br />
-  title={COVID-19 incidence in the Republic of Ireland: A case study for network-based time series models},<br />
+@article{armbruster2024network,<br />
+  title={Network-based time series modeling for COVID-19 incidence in the Republic of Ireland},<br />
   author={Armbruster, Stephanie and Reinert, Gesine},<br />
-  journal={arXiv preprint arXiv:2307.06199},<br />
-  year={2023}<br />
+  journal={Springer Nature},<br />
+  year={2024}<br />
 }
 
 ## Data
@@ -33,6 +33,5 @@ The folder Figures contains all generated figures for the paper.
 ## Supplementary Material 
 The file SM_Model_fitting_entire_datasets.R fits GNAR models to the entire dataset. <br />
 The file SM_Model_fitting_subsets.R fits GNAR models to data subsets defined by official COVID-19 guidelines imposed by the Irish Government. <br />
-The file SM_Simulation.R provides code to simulate data and reconstruct GNAR model coefficients.
 
  
